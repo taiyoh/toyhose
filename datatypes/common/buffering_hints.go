@@ -33,5 +33,11 @@ func (h *BufferingHints) FillDefaultValue() {
 }
 
 func (h *BufferingHints) Validate() error {
+	if err := h.validateIntervalSeconds(); err != nil {
+		return err
+	}
+	if err := h.validateSizeInMBs(); err != nil {
+		return err
+	}
 	return nil
 }
