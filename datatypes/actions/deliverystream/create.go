@@ -1,6 +1,7 @@
 package deliverystream
 
 import (
+	"encoding/json"
 	"errors"
 
 	"github.com/taiyoh/toyhose/datatypes/s3"
@@ -10,6 +11,17 @@ type CreateInput struct {
 	Name   string   `json:"DeliveryStreamName"`
 	Type   string   `json:"DeliveryStreamType"`
 	S3Conf *s3.Conf `json:"ExtendedS3DestinationConfiguration"`
+}
+
+func NewCreateInput(arg string) (*CreateInput, error) {
+	input := CreateInput{}
+	if err := json.Unmarshal([]byte(arg), &input); err != nil {
+		return nil, err
+	}
+	if err := input.Validate(); err != nil {
+		return nil, err
+	}
+	return &input, nil
 }
 
 func (i CreateInput) validateType() error {
