@@ -1,6 +1,8 @@
 package common
 
-import "errors"
+import (
+	"github.com/taiyoh/toyhose/exception"
+)
 
 // https://docs.aws.amazon.com/ja_jp/firehose/latest/APIReference/API_BufferingHints.html
 
@@ -11,14 +13,14 @@ type BufferingHints struct {
 
 func (h *BufferingHints) validateIntervalSeconds() error {
 	if h.IntervalInSeconds < 60 || 900 < h.IntervalInSeconds {
-		return errors.New("IntervalSeconds is invalid")
+		return exception.NewInvalidArgument("IntervalSeconds")
 	}
 	return nil
 }
 
 func (h *BufferingHints) validateSizeInMBs() error {
 	if h.SizeInMBs < 1 || 128 < h.SizeInMBs {
-		return errors.New("SizeInMBs is invalid")
+		return exception.NewInvalidArgument("SizeInMBs")
 	}
 	return nil
 }

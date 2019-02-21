@@ -1,10 +1,10 @@
 package s3
 
 import (
-	"errors"
 	"strings"
 
 	"github.com/taiyoh/toyhose/datatypes/common"
+	"github.com/taiyoh/toyhose/exception"
 )
 
 type Conf struct {
@@ -21,34 +21,42 @@ type Conf struct {
 func (c *Conf) validateARN() error {
 	bArn := c.BucketARN
 	if l := len(bArn); l < 1 || 2048 < l {
-		return errors.New("BucketARN length is invalid")
+		return exception.NewInvalidArgument("BucketARN")
 	}
 	if !strings.HasPrefix(bArn, "arn:") {
-		return errors.New("BucketARN pattern unmatched")
+		return exception.NewInvalidArgument("BucketARN")
 	}
 	rArn := c.RoleARN
 	if l := len(rArn); l < 1 || 512 < l {
-		return errors.New("RoleARN length is invalid")
+		return exception.NewInvalidArgument("RoleARN")
 	}
 	if !strings.HasPrefix(rArn, "arn:") {
-		return errors.New("RoleARN pattern unmatched")
+		return exception.NewInvalidArgument("RoleARN")
 	}
 	return nil
 }
 
+var compressionFormatMap = map[string]struct{}{
+	"UNCOMPRESSED": struct{}{},
+	"GZIP":         struct{}{},
+	"ZIP":          struct{}{},
+	"Snappy":       struct{}{},
+}
+
 func (c *Conf) validateCompressionFormat() error {
 	cf := c.CompressionFormat
-	for _, f := range []string{"UNCOMPRESSED", "GZIP", "ZIP", "Snappy"} {
-		if cf == f {
-			return nil
-		}
+	if _, ok := compressionFormatMap[cf]; !ok {
+		return exception.NewInvalidArgument("CompressionFormat")
 	}
-	return errors.New("CompressionFormat is invalid")
+	return nil
 }
 
 func (c *Conf) FillDefaultValue() {
 	if c.CompressionFormat == "" {
 		c.CompressionFormat = "UNCOMPRESSED"
+	}
+	if bh := c.BufferingHints; bh != nil {
+		bh.FillDefaultValue()
 	}
 }
 
