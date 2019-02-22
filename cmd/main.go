@@ -4,23 +4,11 @@ import (
 	"net/http"
 
 	"github.com/taiyoh/toyhose"
+	"github.com/taiyoh/toyhose/gateway"
 )
 
 func main() {
-	mux := http.NewServeMux()
-	hdl := toyhose.NewHandler()
-	mux.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
-		if req.Method != http.MethodPost {
-			res.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-		switch req.URL.Path {
-		case "/":
-			hdl.ServeHTTP(res, req)
-		default:
-			http.NotFound(res, req)
-		}
-	})
-
-	http.ListenAndServe(":8080", mux)
+	repo := gateway.NewDeliveryStream()
+	a := toyhose.NewAdapter(repo)
+	http.ListenAndServe(":8080", a.ServeMux())
 }
