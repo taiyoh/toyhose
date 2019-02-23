@@ -2,9 +2,9 @@ package deliverystream
 
 import (
 	"encoding/json"
-	"errors"
 
 	"github.com/taiyoh/toyhose/datatypes/s3"
+	"github.com/taiyoh/toyhose/exception"
 )
 
 type CreateInput struct {
@@ -13,9 +13,9 @@ type CreateInput struct {
 	S3Conf *s3.Conf `json:"ExtendedS3DestinationConfiguration"`
 }
 
-func NewCreateInput(arg string) (*CreateInput, error) {
+func NewCreateInput(arg []byte) (*CreateInput, error) {
 	input := CreateInput{}
-	if err := json.Unmarshal([]byte(arg), &input); err != nil {
+	if err := json.Unmarshal(arg, &input); err != nil {
 		return nil, err
 	}
 	if err := input.Validate(); err != nil {
@@ -28,8 +28,8 @@ func (i CreateInput) validateType() error {
 	if i.Type == "" {
 		return nil
 	}
-	if i.Type != "DirectPut" && i.Type != "KinesisStreamAsSource" {
-		return errors.New("DeliveryStreamType is invalid")
+	if i.Type != "DirectPut" {
+		return exception.NewInvalidArgument("DeliveryStreamType")
 	}
 	return nil
 }

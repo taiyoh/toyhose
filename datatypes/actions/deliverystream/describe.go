@@ -1,6 +1,11 @@
 package deliverystream
 
-import "errors"
+import (
+	"errors"
+	"time"
+
+	"github.com/taiyoh/toyhose/datatypes/s3"
+)
 
 type DescribeInput struct {
 	Name                        string  `json:"DeliveryStreamName"`
@@ -26,5 +31,19 @@ func (i DescribeInput) Validate() error {
 	return nil
 }
 
+type Destination struct {
+	ID     string   `json:"DestinationId"`
+	S3Conf *s3.Conf `json:"ExtendedS3DestinationDescription"`
+}
+
 type DescribeOutput struct {
+	Created         time.Time      `json:"CreatedTimeStamp"`
+	Updated         time.Time      `json:"UpdatedTimeStamp"`
+	ARN             string         `json:"DeliveryStreamARN"`
+	Name            string         `json:"DeliveryStreamName"`
+	Status          string         `json:"DeliveryStreamStatus"`
+	Type            string         `json:"DeliveryStreamType"`
+	Destinations    []*Destination `json:"Destinations"`
+	MoreDestination bool           `json:"HasMoreDestinations"`
+	VersionID       string         `json:"VersionId"`
 }
