@@ -11,8 +11,8 @@ type DestinationMemory struct {
 	list     []*firehose.Destination
 }
 
-func NewDestinationMemory(seq uint32) *DestinationMemory {
-	return &DestinationMemory{sequence: seq, list: []*firehose.Destination{}}
+func NewDestinationMemory() *DestinationMemory {
+	return &DestinationMemory{sequence: 0, list: []*firehose.Destination{}}
 }
 
 func (d *DestinationMemory) DispenceSequence(ctx context.Context) uint32 {

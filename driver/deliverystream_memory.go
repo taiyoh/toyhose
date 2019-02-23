@@ -28,3 +28,11 @@ func (d *DeliveryStreamMemory) Save(ctx context.Context, ds *firehose.DeliverySt
 	d.arnIndex[ds.ARN] = len(d.streams) - 1
 	return nil
 }
+
+func (d *DeliveryStreamMemory) Find(cxt context.Context, a arn.DeliveryStream) *firehose.DeliveryStream {
+	i, exists := d.arnIndex[a]
+	if !exists {
+		return nil
+	}
+	return d.streams[i]
+}
