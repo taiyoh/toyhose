@@ -1,11 +1,10 @@
 package toyhose
 
 import (
-	"bytes"
-	"context"
 	"net/http"
 
 	"github.com/taiyoh/toyhose/actions"
+	"github.com/taiyoh/toyhose/actions/port"
 	"github.com/taiyoh/toyhose/driver"
 	"github.com/taiyoh/toyhose/gateway"
 )
@@ -40,11 +39,11 @@ func (a *Adapter) handleFn(res http.ResponseWriter, req *http.Request) {
 		http.NotFound(res, req)
 		return
 	}
-	ctx := context.Background()
-	b := bytes.NewBuffer([]byte{})
-	b.ReadFrom(req.Body)
+	input, output := port.New(req.Body)
 
-	fn(ctx, b.Bytes())
+	fn(input, output)
+
+	output.Fill(res)
 }
 
 func (a *Adapter) validateRequest(res http.ResponseWriter, req *http.Request) bool {
@@ -63,7 +62,7 @@ func (a *Adapter) ServeMux() *http.ServeMux {
 	return a.mux
 }
 
-type UseCaseFn func(context.Context, []byte) error
+type UseCaseFn func(*port.Input, *port.Output)
 
 func (a *Adapter) Dispatch(target string) UseCaseFn {
 	dsRepo := gateway.NewDeliveryStream(a.dsRepo)
