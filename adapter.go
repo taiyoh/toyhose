@@ -6,23 +6,26 @@ import (
 	"net/http"
 
 	"github.com/taiyoh/toyhose/actions"
-	"github.com/taiyoh/toyhose/gateway"
-
 	"github.com/taiyoh/toyhose/driver"
+	"github.com/taiyoh/toyhose/gateway"
 )
 
 type Adapter struct {
-	mux      *http.ServeMux
-	dsRepo   *driver.DeliveryStreamMemory
-	destRepo *driver.DestinationMemory
+	mux       *http.ServeMux
+	region    string
+	accountID string
+	dsRepo    *driver.DeliveryStreamMemory
+	destRepo  *driver.DestinationMemory
 }
 
-func NewAdapter(dsRepo *driver.DeliveryStreamMemory, destRepo *driver.DestinationMemory) *Adapter {
+func NewAdapter(region, accountID string, dsRepo *driver.DeliveryStreamMemory, destRepo *driver.DestinationMemory) *Adapter {
 	mux := http.NewServeMux()
 	a := &Adapter{
-		mux:      mux,
-		dsRepo:   dsRepo,
-		destRepo: destRepo,
+		mux:       mux,
+		region:    region,
+		accountID: accountID,
+		dsRepo:    dsRepo,
+		destRepo:  destRepo,
 	}
 	mux.HandleFunc("/", a.handleFn)
 	return a
@@ -60,17 +63,15 @@ func (a *Adapter) ServeMux() *http.ServeMux {
 	return a.mux
 }
 
-type UseCaseFn func(context.Context, []byte)
+type UseCaseFn func(context.Context, []byte) error
 
 func (a *Adapter) Dispatch(target string) UseCaseFn {
 	dsRepo := gateway.NewDeliveryStream(a.dsRepo)
 	destRepo := gateway.NewDestination(a.destRepo)
-	d := actions.NewDeliveryStream(dsRepo, destRepo)
+	d := actions.NewDeliveryStream(dsRepo, destRepo, a.region, a.accountID)
 	switch FindType(target) {
 	case CreateDeliveryStream:
 		return d.Create
-	case DeleteDeliveryStream:
-		return d.Delete
 	case DescribeDeliveryStream:
 		return d.Describe
 	case ListDeliveryStreams:

@@ -9,7 +9,7 @@ type ActionType int
 const (
 	NotFound ActionType = iota
 	CreateDeliveryStream
-	DeleteDeliveryStream
+	_ // DeleteDeliveryStream
 	DescribeDeliveryStream
 	ListDeliveryStreams
 	_ // ListTagsForDeliveryStream
@@ -19,7 +19,6 @@ const (
 
 var commandTable = map[string]ActionType{
 	"CreateDeliveryStream":   CreateDeliveryStream,
-	"DeleteDeliveryStream":   DeleteDeliveryStream,
 	"DescribeDeliveryStream": DescribeDeliveryStream,
 	"ListDeliveryStream":     ListDeliveryStreams,
 	"PutRecord":              PutRecord,
