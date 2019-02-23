@@ -1,6 +1,9 @@
 package exception
 
-import "fmt"
+import (
+	"fmt"
+	"net/http"
+)
 
 type InvalidArgument struct {
 	field string
@@ -12,4 +15,8 @@ func NewInvalidArgument(field string) *InvalidArgument {
 
 func (e *InvalidArgument) Error() string {
 	return fmt.Sprintf("%s is invalid", e.field)
+}
+
+func (e *InvalidArgument) Code() int {
+	return http.StatusBadRequest
 }
