@@ -17,7 +17,7 @@ type Conf struct {
 	Prefix            *string                `json:"Prefix"`
 }
 
-func (c *Conf) validateARN() error {
+func (c *Conf) validateARN() exception.Raised {
 	bArn := c.BucketARN
 	if l := len(bArn); l < 1 || 2048 < l {
 		return exception.NewInvalidArgument("BucketARN")
@@ -42,7 +42,7 @@ var compressionFormatMap = map[string]struct{}{
 	"Snappy":       struct{}{},
 }
 
-func (c *Conf) validateCompressionFormat() error {
+func (c *Conf) validateCompressionFormat() exception.Raised {
 	cf := c.CompressionFormat
 	if _, ok := compressionFormatMap[cf]; !ok {
 		return exception.NewInvalidArgument("CompressionFormat")
@@ -59,7 +59,7 @@ func (c *Conf) FillDefaultValue() {
 	}
 }
 
-func (c *Conf) Validate() error {
+func (c *Conf) Validate() exception.Raised {
 	if err := c.validateARN(); err != nil {
 		return err
 	}

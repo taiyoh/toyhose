@@ -11,14 +11,14 @@ type BufferingHints struct {
 	SizeInMBs         uint `json:"SizeInMBs"`         // delault: 5
 }
 
-func (h *BufferingHints) validateIntervalSeconds() error {
+func (h *BufferingHints) validateIntervalSeconds() exception.Raised {
 	if h.IntervalInSeconds < 60 || 900 < h.IntervalInSeconds {
 		return exception.NewInvalidArgument("IntervalSeconds")
 	}
 	return nil
 }
 
-func (h *BufferingHints) validateSizeInMBs() error {
+func (h *BufferingHints) validateSizeInMBs() exception.Raised {
 	if h.SizeInMBs < 1 || 128 < h.SizeInMBs {
 		return exception.NewInvalidArgument("SizeInMBs")
 	}
@@ -34,7 +34,7 @@ func (h *BufferingHints) FillDefaultValue() {
 	}
 }
 
-func (h *BufferingHints) Validate() error {
+func (h *BufferingHints) Validate() exception.Raised {
 	if err := h.validateIntervalSeconds(); err != nil {
 		return err
 	}

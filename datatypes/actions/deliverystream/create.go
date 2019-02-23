@@ -18,10 +18,10 @@ type CreateInput struct {
 	S3Conf    *s3.Conf `json:"ExtendedS3DestinationConfiguration"`
 }
 
-func NewCreateInput(region, accountID string, arg []byte) (*CreateInput, error) {
+func NewCreateInput(region, accountID string, arg []byte) (*CreateInput, exception.Raised) {
 	input := CreateInput{region: region, accountID: accountID}
 	if err := json.Unmarshal(arg, &input); err != nil {
-		return nil, err
+		return nil, exception.NewInvalidArgument("input")
 	}
 	if err := input.Validate(); err != nil {
 		return nil, err
@@ -29,7 +29,7 @@ func NewCreateInput(region, accountID string, arg []byte) (*CreateInput, error) 
 	return &input, nil
 }
 
-func (i CreateInput) validateType() error {
+func (i CreateInput) validateType() exception.Raised {
 	if i.Type == "" {
 		return nil
 	}
@@ -39,7 +39,7 @@ func (i CreateInput) validateType() error {
 	return nil
 }
 
-func (i CreateInput) Validate() error {
+func (i CreateInput) Validate() exception.Raised {
 	if err := validateName(i.Name); err != nil {
 		return err
 	}
