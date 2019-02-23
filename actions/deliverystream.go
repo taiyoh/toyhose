@@ -3,9 +3,8 @@ package actions
 import (
 	"context"
 
-	"github.com/taiyoh/toyhose/datatypes/firehose"
-
 	"github.com/taiyoh/toyhose/datatypes/actions/deliverystream"
+	"github.com/taiyoh/toyhose/datatypes/firehose"
 	"github.com/taiyoh/toyhose/exception"
 )
 

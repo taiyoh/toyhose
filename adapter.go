@@ -18,7 +18,7 @@ type Adapter struct {
 	destRepo  *driver.DestinationMemory
 }
 
-func NewAdapter(region, accountID string, dsRepo *driver.DeliveryStreamMemory, destRepo *driver.DestinationMemory) *Adapter {
+func New(region, accountID string, dsRepo *driver.DeliveryStreamMemory, destRepo *driver.DestinationMemory) *Adapter {
 	mux := http.NewServeMux()
 	a := &Adapter{
 		mux:       mux,
