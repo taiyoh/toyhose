@@ -10,6 +10,7 @@ import (
 type streamDriver interface {
 	Save(context.Context, *firehose.DeliveryStream) error
 	Find(context.Context, arn.DeliveryStream) *firehose.DeliveryStream
+	FindMulti(context.Context, arn.DeliveryStream, uint) ([]*firehose.DeliveryStream, bool)
 }
 
 type DeliveryStream struct {
@@ -26,4 +27,8 @@ func (d *DeliveryStream) Save(ctx context.Context, ds *firehose.DeliveryStream) 
 
 func (d *DeliveryStream) Find(ctx context.Context, arn arn.DeliveryStream) *firehose.DeliveryStream {
 	return d.driver.Find(ctx, arn)
+}
+
+func (d *DeliveryStream) FindMulti(ctx context.Context, arn arn.DeliveryStream, limit uint) ([]*firehose.DeliveryStream, bool) {
+	return d.driver.FindMulti(ctx, arn, limit)
 }
