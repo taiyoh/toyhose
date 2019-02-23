@@ -26,24 +26,17 @@ func NewCreateInput(region, accountID string, arg []byte) (*CreateInput, excepti
 	if err := input.Validate(); err != nil {
 		return nil, err
 	}
+	if s3conf := input.S3Conf; s3conf != nil {
+		s3conf.FillDefaultValue()
+	}
 	return &input, nil
-}
-
-func (i CreateInput) validateType() exception.Raised {
-	if i.Type == "" {
-		return nil
-	}
-	if i.Type != "DirectPut" {
-		return exception.NewInvalidArgument("DeliveryStreamType")
-	}
-	return nil
 }
 
 func (i CreateInput) Validate() exception.Raised {
 	if err := validateName(i.Name); err != nil {
 		return err
 	}
-	if err := i.validateType(); err != nil {
+	if err := validateType(i.Type); err != nil {
 		return err
 	}
 	if s3conf := i.S3Conf; s3conf != nil {
