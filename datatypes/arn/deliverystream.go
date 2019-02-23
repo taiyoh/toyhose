@@ -10,6 +10,10 @@ type DeliveryStream struct {
 	streamName string
 }
 
+func NewDeliveryStream(region, accountID, name string) DeliveryStream {
+	return DeliveryStream{region, accountID, name}
+}
+
 func (d DeliveryStream) Code() string {
 	return fmt.Sprintf("arn:aws:firehose:%s:%s:deliverystream/%s", d.region, d.accountID, d.streamName)
 }
