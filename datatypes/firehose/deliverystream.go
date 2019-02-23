@@ -14,3 +14,21 @@ type DeliveryStream struct {
 	Type    StreamType
 	Version uint
 }
+
+func (d *DeliveryStream) clone() *DeliveryStream {
+	return &DeliveryStream{
+		ARN:     d.ARN,
+		Created: d.Created,
+		Updated: d.Updated,
+		Status:  d.Status,
+		Type:    d.Type,
+		Version: d.Version,
+	}
+}
+
+func (d *DeliveryStream) Active() *DeliveryStream {
+	newDS := d.clone()
+	newDS.Status = StatusActive
+	newDS.Updated = time.Now()
+	return newDS
+}

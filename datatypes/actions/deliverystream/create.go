@@ -2,19 +2,24 @@ package deliverystream
 
 import (
 	"encoding/json"
+	"time"
 
+	"github.com/taiyoh/toyhose/datatypes/arn"
+	"github.com/taiyoh/toyhose/datatypes/firehose"
 	"github.com/taiyoh/toyhose/datatypes/s3"
 	"github.com/taiyoh/toyhose/exception"
 )
 
 type CreateInput struct {
-	Name   string   `json:"DeliveryStreamName"`
-	Type   string   `json:"DeliveryStreamType"`
-	S3Conf *s3.Conf `json:"ExtendedS3DestinationConfiguration"`
+	region    string
+	accountID string
+	Name      string   `json:"DeliveryStreamName"`
+	Type      string   `json:"DeliveryStreamType"`
+	S3Conf    *s3.Conf `json:"ExtendedS3DestinationConfiguration"`
 }
 
-func NewCreateInput(arg []byte) (*CreateInput, error) {
-	input := CreateInput{}
+func NewCreateInput(region, accountID string, arg []byte) (*CreateInput, error) {
+	input := CreateInput{region: region, accountID: accountID}
 	if err := json.Unmarshal(arg, &input); err != nil {
 		return nil, err
 	}
@@ -50,5 +55,22 @@ func (i CreateInput) Validate() error {
 }
 
 type CreateOutput struct {
-	arn string `json:"DeliveryStreamARN"`
+	ARN string `json:"DeliveryStreamARN"`
+}
+
+func (i CreateInput) ARN() arn.DeliveryStream {
+	return arn.NewDeliveryStream(i.region, i.accountID, i.Name)
+}
+
+func (i CreateInput) Entity() *firehose.DeliveryStream {
+	now := time.Now()
+
+	return &firehose.DeliveryStream{
+		ARN:     i.ARN(),
+		Created: now,
+		Updated: now,
+		Version: 1,
+		Status:  firehose.StatusCreating,
+		Type:    firehose.TypeDirectPut,
+	}
 }
