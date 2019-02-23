@@ -1,14 +1,15 @@
 package gateway
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/taiyoh/toyhose/datatypes/firehose"
 )
 
 type destinationDriver interface {
-	DispenceSequence() uint32
-	Save(*firehose.Destination) error
+	DispenceSequence(context.Context) uint32
+	Save(context.Context, *firehose.Destination) error
 }
 
 type Destination struct {
@@ -19,11 +20,11 @@ func NewDestination(d destinationDriver) *Destination {
 	return &Destination{d}
 }
 
-func (d *Destination) DispenseID() firehose.DestinationID {
-	id := fmt.Sprintf("destinationId-%09d", d.driver.DispenceSequence())
+func (d *Destination) DispenseID(ctx context.Context) firehose.DestinationID {
+	id := fmt.Sprintf("destinationId-%09d", d.driver.DispenceSequence(ctx))
 	return firehose.DestinationID(id)
 }
 
-func (d *Destination) Save(dest *firehose.Destination) error {
-	return d.driver.Save(dest)
+func (d *Destination) Save(ctx context.Context, dest *firehose.Destination) error {
+	return d.driver.Save(ctx, dest)
 }

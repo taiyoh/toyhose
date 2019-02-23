@@ -25,5 +25,6 @@ func (d *DeliveryStreamMemory) Save(ctx context.Context, ds *firehose.DeliverySt
 		return nil
 	}
 	d.streams = append(d.streams, ds)
+	d.arnIndex[ds.ARN] = len(d.streams) - 1
 	return nil
 }
