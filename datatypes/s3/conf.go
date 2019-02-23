@@ -8,14 +8,13 @@ import (
 )
 
 type Conf struct {
-	BucketARN                string                           `json:"BucketARN"`
-	RoleARN                  string                           `json:"RoleARN"`
-	BufferingHints           *common.BufferingHints           `json:"BufferingHints"`
-	CloudWatchLoggingOptions *common.CloudWatchLoggingOptions `json:"CloudWatchLoggingOptions"`
-	CompressionFormat        string                           `json:"CompressionFormat"` // default: UNCOMPRESSED
-	DataFormatConf           *DataFormateConf                 `json:"DataFormatConversionConfiguration"`
-	ErrorOutputPrefix        *string                          `json:"ErrorOutputPrefix"`
-	Prefix                   *string                          `json:"Prefix"`
+	BucketARN         string                 `json:"BucketARN"`
+	RoleARN           string                 `json:"RoleARN"`
+	BufferingHints    *common.BufferingHints `json:"BufferingHints"`
+	CompressionFormat string                 `json:"CompressionFormat"` // default: UNCOMPRESSED
+	DataFormatConf    *DataFormateConf       `json:"DataFormatConversionConfiguration"`
+	ErrorOutputPrefix *string                `json:"ErrorOutputPrefix"`
+	Prefix            *string                `json:"Prefix"`
 }
 
 func (c *Conf) validateARN() error {
