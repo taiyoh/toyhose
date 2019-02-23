@@ -3,7 +3,7 @@
 AWS Firehose emulation
 
 - 👷 [CreateDeliveryStream](https://docs.aws.amazon.com/ja_jp/firehose/latest/APIReference/API_CreateDeliveryStream.html)
-- 👷 [DeleteDeliveryStream](https://docs.aws.amazon.com/ja_jp/firehose/latest/APIReference/API_DeleteDeliveryStream.html)
+- 🙊 [DeleteDeliveryStream](https://docs.aws.amazon.com/ja_jp/firehose/latest/APIReference/API_DeleteDeliveryStream.html)
 - 👷 [DescribeDeliveryStream](https://docs.aws.amazon.com/ja_jp/firehose/latest/APIReference/API_DescribeDeliveryStream.html)
 - 👷 [ListDeliveryStreams](https://docs.aws.amazon.com/ja_jp/firehose/latest/APIReference/API_ListDeliveryStreams.html)
 - 🙊 [ListTagsForDeliveryStream](https://docs.aws.amazon.com/ja_jp/firehose/latest/APIReference/API_ListTagsForDeliveryStream.html)
