@@ -2,6 +2,7 @@ package common
 
 // https://docs.aws.amazon.com/ja_jp/firehose/latest/APIReference/API_SchemaConfiguration.html
 
+// SchemaConf specifies the schema to which you want Kinesis Data Firehose to configure your data before it writes it to Amazon S3.
 type SchemaConf struct {
 	CatalogID    *string `json:"CatalogId"`
 	DatabaseName *string `json:"DatabaseName"`
