@@ -17,16 +17,20 @@ type DeliveryStream struct {
 }
 
 // NewDeliveryStream returns DeliveryStream object
-func NewDeliveryStream(a arn.DeliveryStream) *DeliveryStream {
+func NewDeliveryStream(a arn.DeliveryStream, typ string) (*DeliveryStream, error) {
+	t, err := restoreStreamType(typ)
+	if err != nil {
+		return nil, err
+	}
 	now := time.Now()
 	return &DeliveryStream{
 		ARN:     a,
 		Created: now,
 		Updated: now,
 		Status:  StatusCreating,
-		Type:    TypeDirectPut,
+		Type:    t,
 		Version: 1,
-	}
+	}, nil
 }
 
 func (d *DeliveryStream) clone() *DeliveryStream {

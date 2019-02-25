@@ -29,7 +29,7 @@ func (d *DeliveryStream) Create(input *port.Input, output *port.Output) {
 		output.Set(nil, exception.NewResourceInUse(ci.Name))
 		return
 	}
-	ds := ci.Entity()
+	ds, err := firehose.NewDeliveryStream(ci.ARN(), ci.Type)
 
 	d.destRepo.Save(ctx, &firehose.Destination{
 		ID:        d.destRepo.DispenseID(ctx),

@@ -2,10 +2,8 @@ package deliverystream
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/taiyoh/toyhose/datatypes/arn"
-	"github.com/taiyoh/toyhose/datatypes/firehose"
 	"github.com/taiyoh/toyhose/datatypes/s3"
 	"github.com/taiyoh/toyhose/exception"
 )
@@ -53,17 +51,4 @@ type CreateOutput struct {
 
 func (i CreateInput) ARN() arn.DeliveryStream {
 	return arn.NewDeliveryStream(i.region, i.accountID, i.Name)
-}
-
-func (i CreateInput) Entity() *firehose.DeliveryStream {
-	now := time.Now()
-
-	return &firehose.DeliveryStream{
-		ARN:     i.ARN(),
-		Created: now,
-		Updated: now,
-		Version: 1,
-		Status:  firehose.StatusCreating,
-		Type:    firehose.TypeDirectPut,
-	}
 }
