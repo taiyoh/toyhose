@@ -1,4 +1,4 @@
-package common
+package s3
 
 import (
 	"github.com/taiyoh/toyhose/exception"

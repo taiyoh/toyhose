@@ -1,10 +1,10 @@
-package common_test
+package s3_test
 
 import (
 	"encoding/json"
 	"testing"
 
-	"github.com/taiyoh/toyhose/datatypes/common"
+	"github.com/taiyoh/toyhose/datatypes/s3"
 )
 
 func TestBufferingHints(t *testing.T) {
@@ -26,7 +26,7 @@ func TestBufferingHints(t *testing.T) {
 		{"invalid SizeInMBs", `{"IntervalInSeconds":60,"SizeInMBs":129}`, true, nil, nil, nil, nil},
 		{"not filling default values", `{"IntervalInSeconds":65,"SizeInMBs":10}`, false, &setSec, &setMBs, &setSec, &setMBs},
 	} {
-		bh := common.BufferingHints{}
+		bh := s3.BufferingHints{}
 		if err := json.Unmarshal([]byte(tt.json), &bh); err != nil {
 			t.Errorf(`label="%s" msg="unmarshal error found: %s"`, tt.label, err)
 			break
