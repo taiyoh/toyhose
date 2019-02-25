@@ -1,6 +1,6 @@
 package firehose
 
-import "errors"
+import "github.com/taiyoh/toyhose/exception"
 
 // StreamType provides type of delivery stream
 type StreamType int
@@ -16,10 +16,11 @@ var streamTypeMap = map[string]StreamType{
 	"DirectPut": TypeDirectPut,
 }
 
-func restoreStreamType(typ string) (StreamType, error) {
+// RestoreStreamType returns detected StreamType, also returns exception if it is invalid
+func RestoreStreamType(typ string) (StreamType, exception.Raised) {
 	t, exists := streamTypeMap[typ]
 	if !exists {
-		return TypeInvalid, errors.New("no stream type found")
+		return TypeInvalid, exception.NewInvalidArgument("DeliveryStreamType")
 	}
 	return t, nil
 }

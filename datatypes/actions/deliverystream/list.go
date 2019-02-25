@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/taiyoh/toyhose/datatypes/arn"
+	"github.com/taiyoh/toyhose/datatypes/firehose"
 	"github.com/taiyoh/toyhose/exception"
 )
 
@@ -52,7 +53,7 @@ func (i ListInput) validateExclusiveStartName() exception.Raised {
 }
 
 func (i ListInput) Validate() exception.Raised {
-	if err := validateType(i.Type); err != nil {
+	if _, err := firehose.RestoreStreamType(i.Type); err != nil {
 		return err
 	}
 	if err := i.validateLimit(); err != nil {

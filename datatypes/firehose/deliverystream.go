@@ -18,7 +18,7 @@ type DeliveryStream struct {
 
 // NewDeliveryStream returns DeliveryStream object
 func NewDeliveryStream(a arn.DeliveryStream, typ string) (*DeliveryStream, error) {
-	t, err := restoreStreamType(typ)
+	t, err := RestoreStreamType(typ)
 	if err != nil {
 		return nil, err
 	}

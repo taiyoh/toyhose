@@ -3,6 +3,7 @@ package actions
 import (
 	"github.com/taiyoh/toyhose/actions/port"
 	"github.com/taiyoh/toyhose/datatypes/actions/deliverystream"
+	"github.com/taiyoh/toyhose/datatypes/arn"
 	"github.com/taiyoh/toyhose/datatypes/firehose"
 	"github.com/taiyoh/toyhose/exception"
 )
@@ -25,11 +26,12 @@ func (d *DeliveryStream) Create(input *port.Input, output *port.Output) {
 		return
 	}
 	ctx := input.Ctx()
-	if ds := d.dsRepo.Find(ctx, ci.ARN()); ds != nil {
+	dsARN := arn.NewDeliveryStream(d.region, d.accountID, ci.Name)
+	if ds := d.dsRepo.Find(ctx, dsARN); ds != nil {
 		output.Set(nil, exception.NewResourceInUse(ci.Name))
 		return
 	}
-	ds, err := firehose.NewDeliveryStream(ci.ARN(), ci.Type)
+	ds, _ := firehose.NewDeliveryStream(dsARN, ci.Type)
 
 	d.destRepo.Save(ctx, &firehose.Destination{
 		ID:        d.destRepo.DispenseID(ctx),
