@@ -6,6 +6,7 @@ import (
 	"github.com/taiyoh/toyhose/datatypes/arn"
 )
 
+// DeliveryStream provides domain object of firehose deliverystream
 type DeliveryStream struct {
 	ARN     arn.DeliveryStream
 	Created time.Time
@@ -13,6 +14,19 @@ type DeliveryStream struct {
 	Status  StreamStatus
 	Type    StreamType
 	Version uint
+}
+
+// NewDeliveryStream returns DeliveryStream object
+func NewDeliveryStream(a arn.DeliveryStream) *DeliveryStream {
+	now := time.Now()
+	return &DeliveryStream{
+		ARN:     a,
+		Created: now,
+		Updated: now,
+		Status:  StatusCreating,
+		Type:    TypeDirectPut,
+		Version: 1,
+	}
 }
 
 func (d *DeliveryStream) clone() *DeliveryStream {
@@ -26,6 +40,7 @@ func (d *DeliveryStream) clone() *DeliveryStream {
 	}
 }
 
+// Active provides make status active and update Updated field
 func (d *DeliveryStream) Active() *DeliveryStream {
 	newDS := d.clone()
 	newDS.Status = StatusActive
