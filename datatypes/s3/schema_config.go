@@ -1,4 +1,4 @@
-package common
+package s3
 
 // https://docs.aws.amazon.com/ja_jp/firehose/latest/APIReference/API_SchemaConfiguration.html
 

@@ -12,7 +12,7 @@ type Conf struct {
 	RoleARN           string                 `json:"RoleARN"`
 	BufferingHints    *common.BufferingHints `json:"BufferingHints"`
 	CompressionFormat string                 `json:"CompressionFormat"` // default: UNCOMPRESSED
-	DataFormatConf    *DataFormateConf       `json:"DataFormatConversionConfiguration"`
+	DataFormatConf    *DataFormatConf        `json:"DataFormatConversionConfiguration"`
 	ErrorOutputPrefix *string                `json:"ErrorOutputPrefix"`
 	Prefix            *string                `json:"Prefix"`
 }
