@@ -1,8 +1,6 @@
 package s3
 
-import (
-	"github.com/taiyoh/toyhose/exception"
-)
+import "github.com/taiyoh/toyhose/errors"
 
 // https://docs.aws.amazon.com/ja_jp/firehose/latest/APIReference/API_BufferingHints.html
 
@@ -12,16 +10,16 @@ type BufferingHints struct {
 	SizeInMBs         *uint `json:"SizeInMBs"`         // delault: 5
 }
 
-func (h *BufferingHints) validateIntervalSeconds() exception.Raised {
+func (h *BufferingHints) validateIntervalSeconds() errors.Raised {
 	if sPtr := h.IntervalInSeconds; sPtr != nil && (*sPtr < 60 || 900 < *sPtr) {
-		return exception.NewInvalidArgument("IntervalSeconds")
+		return errors.NewInvalidParameterValue("IntervalSeconds")
 	}
 	return nil
 }
 
-func (h *BufferingHints) validateSizeInMBs() exception.Raised {
+func (h *BufferingHints) validateSizeInMBs() errors.Raised {
 	if bPtr := h.SizeInMBs; bPtr != nil && (*bPtr < 1 || 128 < *bPtr) {
-		return exception.NewInvalidArgument("SizeInMBs")
+		return errors.NewInvalidParameterValue("SizeInMBs")
 	}
 	return nil
 }
@@ -42,7 +40,7 @@ func (h *BufferingHints) FillDefaultValue() {
 }
 
 // Validate returns exception if each assigned value is invalid
-func (h *BufferingHints) Validate() exception.Raised {
+func (h *BufferingHints) Validate() errors.Raised {
 	if err := h.validateIntervalSeconds(); err != nil {
 		return err
 	}

@@ -3,20 +3,20 @@ package deliverystream
 import (
 	"regexp"
 
-	"github.com/taiyoh/toyhose/exception"
+	"github.com/taiyoh/toyhose/errors"
 )
 
-var nameRE = regexp.MustCompile("[a-zA-Z0-9_.-]+")
+var nameRE = regexp.MustCompile("^[a-zA-Z0-9_.-]+$")
 
-func validateName(name string) exception.Raised {
+func validateName(name string) errors.Raised {
 	if name == "" {
-		return exception.NewInvalidArgument("DeliveryStreamName")
+		return errors.NewMissingParameter("DeliveryStreamName")
 	}
 	if len(name) > 64 {
-		return exception.NewInvalidArgument("DeliveryStreamName")
+		return errors.NewInvalidParameterValue("DeliveryStreamName")
 	}
 	if !nameRE.MatchString(name) {
-		return exception.NewInvalidArgument("DeliveryStreamName")
+		return errors.NewInvalidArgumentException("DeliveryStreamName")
 	}
 	return nil
 }

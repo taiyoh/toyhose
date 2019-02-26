@@ -1,4 +1,4 @@
-package exception
+package errors
 
 type Raised interface {
 	Error() string

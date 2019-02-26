@@ -2,7 +2,7 @@ package s3
 
 import (
 	"github.com/taiyoh/toyhose/datatypes/arn"
-	"github.com/taiyoh/toyhose/exception"
+	"github.com/taiyoh/toyhose/errors"
 )
 
 // https://docs.aws.amazon.com/ja_jp/firehose/latest/APIReference/API_ExtendedS3DestinationConfiguration.html
@@ -18,20 +18,26 @@ type Conf struct {
 	Prefix            *string        `json:"Prefix"`
 }
 
-func (c *Conf) validateARN() exception.Raised {
+func (c *Conf) validateARN() errors.Raised {
 	bArn := c.BucketARN
-	if l := len(bArn); l < 1 || 2048 < l {
-		return exception.NewInvalidArgument("BucketARN")
+	if bArn == "" {
+		return errors.NewMissingParameter("BucketARN")
+	}
+	if l := len(bArn); 2048 < l {
+		return errors.NewInvalidParameterValue("BucketARN")
 	}
 	if _, err := arn.RestoreS3FromRaw(bArn); err != nil {
-		return exception.NewInvalidArgument("BucketARN")
+		return errors.NewInvalidArgumentException("BucketARN")
 	}
 	rArn := c.RoleARN
-	if l := len(rArn); l < 1 || 512 < l {
-		return exception.NewInvalidArgument("RoleARN")
+	if rArn == "" {
+		return errors.NewMissingParameter("RoleARN")
+	}
+	if l := len(rArn); 512 < l {
+		return errors.NewInvalidParameterValue("RoleARN")
 	}
 	if _, err := arn.RestoreIAMRoleFromRaw(rArn); err != nil {
-		return exception.NewInvalidArgument("RoleARN")
+		return errors.NewInvalidArgumentException("RoleARN")
 	}
 	return nil
 }
@@ -43,13 +49,13 @@ var compressionFormatMap = map[string]struct{}{
 	"Snappy":       struct{}{},
 }
 
-func (c *Conf) validateCompressionFormat() exception.Raised {
+func (c *Conf) validateCompressionFormat() errors.Raised {
 	cf := c.CompressionFormat
 	if cf == nil {
 		return nil
 	}
 	if _, ok := compressionFormatMap[*cf]; !ok {
-		return exception.NewInvalidArgument("CompressionFormat")
+		return errors.NewInvalidArgumentException("CompressionFormat")
 	}
 	return nil
 }
@@ -67,7 +73,7 @@ func (c *Conf) FillDefaultValue() {
 }
 
 // Validate provides validating each field
-func (c *Conf) Validate() exception.Raised {
+func (c *Conf) Validate() errors.Raised {
 	if err := c.validateARN(); err != nil {
 		return err
 	}

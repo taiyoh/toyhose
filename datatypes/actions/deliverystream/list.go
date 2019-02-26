@@ -5,7 +5,7 @@ import (
 
 	"github.com/taiyoh/toyhose/datatypes/arn"
 	"github.com/taiyoh/toyhose/datatypes/firehose"
-	"github.com/taiyoh/toyhose/exception"
+	"github.com/taiyoh/toyhose/errors"
 )
 
 type ListInput struct {
@@ -16,10 +16,10 @@ type ListInput struct {
 	Limit              *uint  `json:"Limit"`
 }
 
-func NewListInput(region, accountID string, arg []byte) (*ListInput, exception.Raised) {
+func NewListInput(region, accountID string, arg []byte) (*ListInput, errors.Raised) {
 	input := ListInput{region: region, accountID: accountID}
 	if err := json.Unmarshal(arg, &input); err != nil {
-		return nil, exception.NewInvalidArgument("input")
+		return nil, errors.NewValidationError()
 	}
 	if err := input.Validate(); err != nil {
 		return nil, err
@@ -28,31 +28,31 @@ func NewListInput(region, accountID string, arg []byte) (*ListInput, exception.R
 	return &input, nil
 }
 
-func (i ListInput) validateLimit() exception.Raised {
+func (i ListInput) validateLimit() errors.Raised {
 	lmPtr := i.Limit
 	if lmPtr == nil {
 		return nil
 	}
 	if *lmPtr > 10000 {
-		return exception.NewInvalidArgument("Limit")
+		return errors.NewInvalidParameterValue("Limit")
 	}
 	return nil
 }
 
-func (i ListInput) validateExclusiveStartName() exception.Raised {
+func (i ListInput) validateExclusiveStartName() errors.Raised {
 	if i.ExclusiveStartName == "" {
 		return nil
 	}
 	if len(i.ExclusiveStartName) > 64 {
-		return exception.NewInvalidArgument("ExclusiveStartDeliveryStreamName")
+		return errors.NewInvalidParameterValue("ExclusiveStartDeliveryStreamName")
 	}
 	if !nameRE.MatchString(i.ExclusiveStartName) {
-		return exception.NewInvalidArgument("ExclusiveStartDeliveryStreamName")
+		return errors.NewInvalidArgumentException("ExclusiveStartDeliveryStreamName")
 	}
 	return nil
 }
 
-func (i ListInput) Validate() exception.Raised {
+func (i ListInput) Validate() errors.Raised {
 	if _, err := firehose.RestoreStreamType(i.Type); err != nil {
 		return err
 	}

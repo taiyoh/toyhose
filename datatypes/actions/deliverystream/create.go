@@ -3,26 +3,25 @@ package deliverystream
 import (
 	"encoding/json"
 
-	"github.com/taiyoh/toyhose/datatypes/arn"
 	"github.com/taiyoh/toyhose/datatypes/firehose"
 	"github.com/taiyoh/toyhose/datatypes/s3"
-	"github.com/taiyoh/toyhose/exception"
+	"github.com/taiyoh/toyhose/errors"
 )
 
+// CreateInput provides input resource for creating delivery stream usecase
 type CreateInput struct {
-	region    string
-	accountID string
-	Name      string   `json:"DeliveryStreamName"`
-	Type      string   `json:"DeliveryStreamType"`
-	S3Conf    *s3.Conf `json:"ExtendedS3DestinationConfiguration"`
+	Name   string   `json:"DeliveryStreamName"`
+	Type   string   `json:"DeliveryStreamType"`
+	S3Conf *s3.Conf `json:"ExtendedS3DestinationConfiguration"`
 }
 
-func NewCreateInput(region, accountID string, arg []byte) (*CreateInput, exception.Raised) {
-	input := CreateInput{region: region, accountID: accountID}
+// NewCreateInput provides constructor for CreateInput object
+func NewCreateInput(arg []byte) (*CreateInput, errors.Raised) {
+	input := CreateInput{}
 	if err := json.Unmarshal(arg, &input); err != nil {
-		return nil, exception.NewInvalidArgument("input")
+		return nil, errors.NewValidationError()
 	}
-	if err := input.Validate(); err != nil {
+	if err := input.validate(); err != nil {
 		return nil, err
 	}
 	if s3conf := input.S3Conf; s3conf != nil {
@@ -31,7 +30,7 @@ func NewCreateInput(region, accountID string, arg []byte) (*CreateInput, excepti
 	return &input, nil
 }
 
-func (i CreateInput) Validate() exception.Raised {
+func (i CreateInput) validate() errors.Raised {
 	if err := validateName(i.Name); err != nil {
 		return err
 	}
@@ -46,10 +45,7 @@ func (i CreateInput) Validate() exception.Raised {
 	return nil
 }
 
+// CreateOutput provides output resource for creating delivery stream usecase
 type CreateOutput struct {
 	ARN string `json:"DeliveryStreamARN"`
-}
-
-func (i CreateInput) ARN() arn.DeliveryStream {
-	return arn.NewDeliveryStream(i.region, i.accountID, i.Name)
 }
