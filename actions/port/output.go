@@ -4,15 +4,15 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/taiyoh/toyhose/exception"
+	"github.com/taiyoh/toyhose/errors"
 )
 
 type Output struct {
-	err      exception.Raised
+	err      errors.Raised
 	resource interface{}
 }
 
-func (o *Output) Set(r interface{}, err exception.Raised) {
+func (o *Output) Set(r interface{}, err errors.Raised) {
 	o.resource = r
 	o.err = err
 }

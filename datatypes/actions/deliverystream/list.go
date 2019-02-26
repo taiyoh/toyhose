@@ -3,21 +3,18 @@ package deliverystream
 import (
 	"encoding/json"
 
-	"github.com/taiyoh/toyhose/datatypes/arn"
 	"github.com/taiyoh/toyhose/datatypes/firehose"
 	"github.com/taiyoh/toyhose/errors"
 )
 
 type ListInput struct {
-	region             string
-	accountID          string
 	Type               string `json:"DeliveryStreamType"`
 	ExclusiveStartName string `json:"ExclusiveStartDeliveryStreamName"`
 	Limit              *uint  `json:"Limit"`
 }
 
-func NewListInput(region, accountID string, arg []byte) (*ListInput, errors.Raised) {
-	input := ListInput{region: region, accountID: accountID}
+func NewListInput(arg []byte) (*ListInput, errors.Raised) {
+	input := ListInput{}
 	if err := json.Unmarshal(arg, &input); err != nil {
 		return nil, errors.NewValidationError()
 	}
@@ -72,12 +69,12 @@ func (i *ListInput) FillDefaultValue() {
 	}
 }
 
-func (i ListInput) ARN() arn.DeliveryStream {
+func (i ListInput) ExclusiveStartDeliveryStreamName() string {
 	name := i.ExclusiveStartName
 	if name == "" {
 		name = "*"
 	}
-	return arn.NewDeliveryStream(i.region, i.accountID, name)
+	return name
 }
 
 type ListOutput struct {
