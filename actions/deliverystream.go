@@ -5,7 +5,7 @@ import (
 	"github.com/taiyoh/toyhose/datatypes/actions/deliverystream"
 	"github.com/taiyoh/toyhose/datatypes/arn"
 	"github.com/taiyoh/toyhose/datatypes/firehose"
-	"github.com/taiyoh/toyhose/exception"
+	"github.com/taiyoh/toyhose/errors"
 )
 
 type DeliveryStream struct {
@@ -20,7 +20,7 @@ func NewDeliveryStream(dsRepo DeliveryStreamRepository, destRepo DestinationRepo
 }
 
 func (d *DeliveryStream) Create(input *port.Input, output *port.Output) {
-	ci, err := deliverystream.NewCreateInput(d.region, d.accountID, input.Arg())
+	ci, err := deliverystream.NewCreateInput(input.Arg())
 	if err != nil {
 		output.Set(nil, err)
 		return
@@ -28,7 +28,7 @@ func (d *DeliveryStream) Create(input *port.Input, output *port.Output) {
 	ctx := input.Ctx()
 	dsARN := arn.NewDeliveryStream(d.region, d.accountID, ci.Name)
 	if ds := d.dsRepo.Find(ctx, dsARN); ds != nil {
-		output.Set(nil, exception.NewResourceInUse(ci.Name))
+		output.Set(nil, errors.NewResourceInUse(ci.Name))
 		return
 	}
 	ds, _ := firehose.NewDeliveryStream(dsARN, ci.Type)
@@ -55,7 +55,7 @@ func (d *DeliveryStream) List(input *port.Input, output *port.Output) {
 		return
 	}
 	ctx := input.Ctx()
-	dsARN := arn.NewDeliveryStream(d.region, d.accountID, li.ExclusiveDeliveryStreamStartName())
+	dsARN := arn.NewDeliveryStream(d.region, d.accountID, li.ExclusiveStartDeliveryStreamName())
 	streams, hasNext := d.dsRepo.FindMulti(ctx, dsARN, *li.Limit)
 
 	resource := &deliverystream.ListOutput{
