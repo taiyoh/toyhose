@@ -2,24 +2,32 @@ package driver
 
 import (
 	"context"
+	"sync"
 
 	"github.com/taiyoh/toyhose/datatypes/arn"
 	"github.com/taiyoh/toyhose/datatypes/firehose"
 )
 
+// DeliveryStreamMemory provides delivery stream memory storage
 type DeliveryStreamMemory struct {
 	streams  []*firehose.DeliveryStream
 	arnIndex map[arn.DeliveryStream]int
+	mu       *sync.RWMutex
 }
 
+// NewDeliveryStreamMemory returns DeliveryStreamMemory object
 func NewDeliveryStreamMemory() *DeliveryStreamMemory {
 	return &DeliveryStreamMemory{
 		streams:  []*firehose.DeliveryStream{},
 		arnIndex: map[arn.DeliveryStream]int{},
+		mu:       &sync.RWMutex{},
 	}
 }
 
+// Save provides set delivery stream object to this instance
 func (d *DeliveryStreamMemory) Save(ctx context.Context, ds *firehose.DeliveryStream) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	if i, exists := d.arnIndex[ds.ARN]; exists {
 		d.streams[i] = ds
 		return nil
@@ -29,7 +37,10 @@ func (d *DeliveryStreamMemory) Save(ctx context.Context, ds *firehose.DeliverySt
 	return nil
 }
 
+// Find returns delivery stream object
 func (d *DeliveryStreamMemory) Find(ctx context.Context, a arn.DeliveryStream) *firehose.DeliveryStream {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 	i, exists := d.arnIndex[a]
 	if !exists {
 		return nil
@@ -37,35 +48,41 @@ func (d *DeliveryStreamMemory) Find(ctx context.Context, a arn.DeliveryStream) *
 	return d.streams[i]
 }
 
-type searchable struct {
-	arn     arn.DeliveryStream
-	enabled bool
+func (d *DeliveryStreamMemory) findIndex(a arn.DeliveryStream) int {
+	if a.Name() == "*" {
+		return 0
+	}
+	if i, exists := d.arnIndex[a]; exists {
+		return i + 1
+	}
+	return -1
 }
 
-func (s *searchable) Check(a arn.DeliveryStream) bool {
-	res := s.arn.Compare(a)
-	if res != arn.CompareEqualAll && res != arn.CompareEqualRegionAccount {
-		return false
+func (d *DeliveryStreamMemory) calcRetrieveCount(idx, lim int) (int, bool) {
+	if l := len(d.streams); l-1 <= idx+lim {
+		return (l - idx), false
 	}
-	if !s.enabled && res == arn.CompareEqualAll {
-		s.enabled = true
-	}
-	return s.enabled
+	return lim, true
 }
 
+// FindMulti returns delivery stream list by supplied ARN
 func (d *DeliveryStreamMemory) FindMulti(ctx context.Context, a arn.DeliveryStream, limit uint) ([]*firehose.DeliveryStream, bool) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
 	streams := []*firehose.DeliveryStream{}
-	search := &searchable{a, a.Name() == "*"}
-	hasNext := false
-	for _, st := range d.streams {
-		if !search.Check(st.ARN) {
-			continue
-		}
-		if uint(len(streams)) >= limit {
-			hasNext = true
-			break
-		}
-		streams = append(streams, st)
+	startIdx := d.findIndex(a)
+	if startIdx == -1 {
+		return streams, false
 	}
+	retrieveCount, hasNext := d.calcRetrieveCount(startIdx, int(limit))
+
+	seek := startIdx
+	for i := 0; i < retrieveCount; i++ {
+		st := d.streams[seek]
+		streams = append(streams, st)
+		seek++
+	}
+
 	return streams, hasNext
 }
