@@ -7,16 +7,19 @@ import (
 	"github.com/taiyoh/toyhose/errors"
 )
 
+// Output provides response builder for each request
 type Output struct {
 	err      errors.Raised
 	resource interface{}
 }
 
+// Set provides response body and error
 func (o *Output) Set(r interface{}, err errors.Raised) {
 	o.resource = r
 	o.err = err
 }
 
+// Fill provides setup response
 func (o *Output) Fill(res http.ResponseWriter) {
 	if err := o.err; err != nil {
 		res.WriteHeader(err.Code())
@@ -25,12 +28,4 @@ func (o *Output) Fill(res http.ResponseWriter) {
 		out, _ := json.Marshal(resource)
 		res.Write(out)
 	}
-}
-
-func (o *Output) Error() error {
-	return o.err
-}
-
-func (o *Output) Resource() interface{} {
-	return o.resource
 }
