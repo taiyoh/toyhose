@@ -7,21 +7,23 @@ import (
 	"github.com/taiyoh/toyhose/errors"
 )
 
+// ListInput provides input resource for listing delivery stream usecase
 type ListInput struct {
-	Type               string `json:"DeliveryStreamType"`
-	ExclusiveStartName string `json:"ExclusiveStartDeliveryStreamName"`
-	Limit              *uint  `json:"Limit"`
+	Type               *string `json:"DeliveryStreamType"`
+	ExclusiveStartName *string `json:"ExclusiveStartDeliveryStreamName"`
+	Limit              *uint   `json:"Limit"`
 }
 
+// NewListInput provides constructor for ListInput object
 func NewListInput(arg []byte) (*ListInput, errors.Raised) {
 	input := ListInput{}
 	if err := json.Unmarshal(arg, &input); err != nil {
 		return nil, errors.NewValidationError()
 	}
-	if err := input.Validate(); err != nil {
+	if err := input.validate(); err != nil {
 		return nil, err
 	}
-	(&input).FillDefaultValue()
+	(&input).fillDefaultValue()
 	return &input, nil
 }
 
@@ -37,21 +39,24 @@ func (i ListInput) validateLimit() errors.Raised {
 }
 
 func (i ListInput) validateExclusiveStartName() errors.Raised {
-	if i.ExclusiveStartName == "" {
+	exName := i.ExclusiveStartName
+	if exName == nil {
 		return nil
 	}
-	if len(i.ExclusiveStartName) > 64 {
+	if len(*exName) > 64 {
 		return errors.NewInvalidParameterValue("ExclusiveStartDeliveryStreamName")
 	}
-	if !nameRE.MatchString(i.ExclusiveStartName) {
+	if !nameRE.MatchString(*exName) {
 		return errors.NewInvalidArgumentException("ExclusiveStartDeliveryStreamName")
 	}
 	return nil
 }
 
-func (i ListInput) Validate() errors.Raised {
-	if _, err := firehose.RestoreStreamType(i.Type); err != nil {
-		return err
+func (i ListInput) validate() errors.Raised {
+	if i.Type != nil {
+		if _, err := firehose.RestoreStreamType(*i.Type); err != nil {
+			return err
+		}
 	}
 	if err := i.validateLimit(); err != nil {
 		return err
@@ -62,21 +67,24 @@ func (i ListInput) Validate() errors.Raised {
 	return nil
 }
 
-func (i *ListInput) FillDefaultValue() {
+var defaultListLimit uint = 10
+
+func (i *ListInput) fillDefaultValue() {
 	if i.Limit == nil {
-		ten := uint(10)
-		i.Limit = &ten
+		i.Limit = &defaultListLimit
 	}
 }
 
+// ExclusiveStartDeliveryStreamName returns cursor for start position of listing
 func (i ListInput) ExclusiveStartDeliveryStreamName() string {
 	name := i.ExclusiveStartName
-	if name == "" {
-		name = "*"
+	if name == nil {
+		return "*"
 	}
-	return name
+	return *name
 }
 
+// ListOutput provides output resource for listing delivery stream usecase
 type ListOutput struct {
 	Names   []string `json:"DeliveryStreamNames"`
 	HasNext bool     `json:"HasMoreDeliveryStreams"`

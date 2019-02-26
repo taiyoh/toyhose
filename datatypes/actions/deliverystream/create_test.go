@@ -33,9 +33,24 @@ func TestCreateInput(t *testing.T) {
 			true,
 		},
 		{
-			"invalid StreamType",
+			"missing StreamType",
 			`{"DeliveryStreamName":"foobar"}`,
 			true,
+		},
+		{
+			"invalid StreamType",
+			`{"DeliveryStreamName":"foobar","DeliveryStreamType":"hoge"}`,
+			true,
+		},
+		{
+			"invalid S3Conf",
+			`{"DeliveryStreamName":"foobar","DeliveryStreamType":"DirectPut","ExtendedS3DestinationConfiguration":{}}`,
+			true,
+		},
+		{
+			"valid",
+			`{"DeliveryStreamName":"foobar","DeliveryStreamType":"DirectPut","ExtendedS3DestinationConfiguration":{"BucketARN":"arn:aws:s3:::bucket_name","RoleARN":"arn:aws:iam::accoun_id:role/role_name"}}`,
+			false,
 		},
 	} {
 		ci, err := deliverystream.NewCreateInput([]byte(tt.rawjson))
