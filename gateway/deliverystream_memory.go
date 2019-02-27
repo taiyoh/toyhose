@@ -1,4 +1,4 @@
-package driver
+package gateway
 
 import (
 	"context"
@@ -8,16 +8,16 @@ import (
 	"github.com/taiyoh/toyhose/datatypes/firehose"
 )
 
-// DeliveryStreamMemory provides delivery stream memory storage
-type DeliveryStreamMemory struct {
+// DeliveryStream provides delivery stream memory storage
+type DeliveryStream struct {
 	streams  []*firehose.DeliveryStream
 	arnIndex map[arn.DeliveryStream]int
 	mu       *sync.RWMutex
 }
 
-// NewDeliveryStreamMemory returns DeliveryStreamMemory object
-func NewDeliveryStreamMemory() *DeliveryStreamMemory {
-	return &DeliveryStreamMemory{
+// NewDeliveryStream returns DeliveryStream object
+func NewDeliveryStream() *DeliveryStream {
+	return &DeliveryStream{
 		streams:  []*firehose.DeliveryStream{},
 		arnIndex: map[arn.DeliveryStream]int{},
 		mu:       &sync.RWMutex{},
@@ -25,7 +25,7 @@ func NewDeliveryStreamMemory() *DeliveryStreamMemory {
 }
 
 // Save provides set delivery stream object to this instance
-func (d *DeliveryStreamMemory) Save(ctx context.Context, ds *firehose.DeliveryStream) error {
+func (d *DeliveryStream) Save(ctx context.Context, ds *firehose.DeliveryStream) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if i, exists := d.arnIndex[ds.ARN]; exists {
@@ -38,7 +38,7 @@ func (d *DeliveryStreamMemory) Save(ctx context.Context, ds *firehose.DeliverySt
 }
 
 // Find returns delivery stream object
-func (d *DeliveryStreamMemory) Find(ctx context.Context, a arn.DeliveryStream) *firehose.DeliveryStream {
+func (d *DeliveryStream) Find(ctx context.Context, a arn.DeliveryStream) *firehose.DeliveryStream {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	i, exists := d.arnIndex[a]
@@ -48,7 +48,7 @@ func (d *DeliveryStreamMemory) Find(ctx context.Context, a arn.DeliveryStream) *
 	return d.streams[i]
 }
 
-func (d *DeliveryStreamMemory) findIndex(a arn.DeliveryStream) int {
+func (d *DeliveryStream) findIndex(a arn.DeliveryStream) int {
 	if a.Name() == "*" {
 		return 0
 	}
@@ -58,7 +58,7 @@ func (d *DeliveryStreamMemory) findIndex(a arn.DeliveryStream) int {
 	return -1
 }
 
-func (d *DeliveryStreamMemory) calcRetrieveCount(idx, lim int) (int, bool) {
+func (d *DeliveryStream) calcRetrieveCount(idx, lim int) (int, bool) {
 	if l := len(d.streams); l-1 <= idx+lim {
 		return (l - idx), false
 	}
@@ -66,7 +66,7 @@ func (d *DeliveryStreamMemory) calcRetrieveCount(idx, lim int) (int, bool) {
 }
 
 // FindMulti returns delivery stream list by supplied ARN
-func (d *DeliveryStreamMemory) FindMulti(ctx context.Context, a arn.DeliveryStream, limit uint) ([]*firehose.DeliveryStream, bool) {
+func (d *DeliveryStream) FindMulti(ctx context.Context, a arn.DeliveryStream, limit uint) ([]*firehose.DeliveryStream, bool) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 

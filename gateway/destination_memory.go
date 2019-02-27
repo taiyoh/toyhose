@@ -1,24 +1,25 @@
-package driver
+package gateway
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 
 	"github.com/taiyoh/toyhose/datatypes/firehose"
 )
 
-// DestinationMemory provides destination memory storage
-type DestinationMemory struct {
+// Destination provides destination memory storage
+type Destination struct {
 	sequence uint64
 	list     []*firehose.Destination
 	idmap    map[firehose.DestinationID]int
 	mu       *sync.RWMutex
 }
 
-// NewDestinationMemory returns DestinationMemory object
-func NewDestinationMemory() *DestinationMemory {
-	return &DestinationMemory{
+// NewDestination returns DestinationMemory object
+func NewDestination() *Destination {
+	return &Destination{
 		sequence: 0,
 		list:     []*firehose.Destination{},
 		idmap:    map[firehose.DestinationID]int{},
@@ -26,14 +27,19 @@ func NewDestinationMemory() *DestinationMemory {
 	}
 }
 
-// DispenceSequence returns sequence number for generating id
-func (d *DestinationMemory) DispenceSequence(ctx context.Context) uint64 {
+func (d *Destination) dispenseSequence() uint64 {
 	atomic.AddUint64(&d.sequence, 1)
 	return d.sequence
 }
 
+// DispenseID returns generated id for destination
+func (d *Destination) DispenseID(ctx context.Context) firehose.DestinationID {
+	id := fmt.Sprintf("destinationId-%09d", d.dispenseSequence())
+	return firehose.DestinationID(id)
+}
+
 // Save provides set Destination object to this instance
-func (d *DestinationMemory) Save(ctx context.Context, dest *firehose.Destination) error {
+func (d *Destination) Save(ctx context.Context, dest *firehose.Destination) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if i, exists := d.idmap[dest.ID]; exists {

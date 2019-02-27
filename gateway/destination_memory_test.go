@@ -1,4 +1,4 @@
-package driver
+package gateway
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 )
 
 func TestDestinationMemory(t *testing.T) {
-	dRepo := NewDestinationMemory()
+	dRepo := NewDestination()
 	ctx := context.Background()
 	wg := &sync.WaitGroup{}
 	wg.Add(10)
@@ -20,7 +20,7 @@ func TestDestinationMemory(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			time.Sleep(1 * time.Millisecond)
-			id := firehose.DestinationID(fmt.Sprintf("destID-%01d", dRepo.DispenceSequence(ctx)))
+			id := dRepo.DispenseID(ctx)
 			source := arn.NewDeliveryStream("foo", "bar", fmt.Sprintf("delivery-%d", idx))
 			dRepo.Save(ctx, &firehose.Destination{
 				ID:        id,

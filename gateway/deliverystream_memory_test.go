@@ -1,4 +1,4 @@
-package driver_test
+package gateway_test
 
 import (
 	"context"
@@ -8,11 +8,11 @@ import (
 
 	"github.com/taiyoh/toyhose/datatypes/arn"
 	"github.com/taiyoh/toyhose/datatypes/firehose"
-	"github.com/taiyoh/toyhose/driver"
+	"github.com/taiyoh/toyhose/gateway"
 )
 
 func TestDeliveryStreamMemory(t *testing.T) {
-	dRepo := driver.NewDeliveryStreamMemory()
+	dRepo := gateway.NewDeliveryStream()
 
 	ctx := context.Background()
 	wg := &sync.WaitGroup{}
@@ -42,7 +42,7 @@ func TestDeliveryStreamMemory(t *testing.T) {
 }
 
 func TestDeliveryStreamMemoryFindMulti(t *testing.T) {
-	dRepo := driver.NewDeliveryStreamMemory()
+	dRepo := gateway.NewDeliveryStream()
 	ctx := context.Background()
 	for i := 1; i <= 10; i++ {
 		ds, _ := firehose.NewDeliveryStream(

@@ -5,7 +5,6 @@ import (
 
 	"github.com/taiyoh/toyhose/actions"
 	"github.com/taiyoh/toyhose/actions/port"
-	"github.com/taiyoh/toyhose/driver"
 	"github.com/taiyoh/toyhose/gateway"
 )
 
@@ -13,11 +12,11 @@ type Adapter struct {
 	mux       *http.ServeMux
 	region    string
 	accountID string
-	dsRepo    *driver.DeliveryStreamMemory
-	destRepo  *driver.DestinationMemory
+	dsRepo    *gateway.DeliveryStream
+	destRepo  *gateway.Destination
 }
 
-func New(region, accountID string, dsRepo *driver.DeliveryStreamMemory, destRepo *driver.DestinationMemory) *Adapter {
+func New(region, accountID string, dsRepo *gateway.DeliveryStream, destRepo *gateway.Destination) *Adapter {
 	mux := http.NewServeMux()
 	a := &Adapter{
 		mux:       mux,
@@ -65,9 +64,7 @@ func (a *Adapter) ServeMux() *http.ServeMux {
 type UseCaseFn func(*port.Input, *port.Output)
 
 func (a *Adapter) Dispatch(target string) UseCaseFn {
-	dsRepo := gateway.NewDeliveryStream(a.dsRepo)
-	destRepo := gateway.NewDestination(a.destRepo)
-	d := actions.NewDeliveryStream(dsRepo, destRepo, a.region, a.accountID)
+	d := actions.NewDeliveryStream(a.dsRepo, a.destRepo, a.region, a.accountID)
 	switch FindType(target) {
 	case CreateDeliveryStream:
 		return d.Create
