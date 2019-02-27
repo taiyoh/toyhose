@@ -33,7 +33,7 @@ func (i DescribeInput) Validate() error {
 
 type Destination struct {
 	ID     string   `json:"DestinationId"`
-	S3Conf *s3.Conf `json:"ExtendedS3DestinationDescription"`
+	S3Conf *s3.Conf `json:"S3DestinationDescription"`
 }
 
 type DescribeOutput struct {

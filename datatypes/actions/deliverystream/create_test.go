@@ -44,12 +44,12 @@ func TestCreateInput(t *testing.T) {
 		},
 		{
 			"invalid S3Conf",
-			`{"DeliveryStreamName":"foobar","DeliveryStreamType":"DirectPut","ExtendedS3DestinationConfiguration":{}}`,
+			`{"DeliveryStreamName":"foobar","DeliveryStreamType":"DirectPut","S3DestinationConfiguration":{}}`,
 			true,
 		},
 		{
 			"valid",
-			`{"DeliveryStreamName":"foobar","DeliveryStreamType":"DirectPut","ExtendedS3DestinationConfiguration":{"BucketARN":"arn:aws:s3:::bucket_name","RoleARN":"arn:aws:iam::accoun_id:role/role_name"}}`,
+			`{"DeliveryStreamName":"foobar","DeliveryStreamType":"DirectPut","S3DestinationConfiguration":{"BucketARN":"arn:aws:s3:::bucket_name","RoleARN":"arn:aws:iam::accoun_id:role/role_name"}}`,
 			false,
 		},
 	} {

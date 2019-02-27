@@ -11,7 +11,7 @@ import (
 type CreateInput struct {
 	Name   string   `json:"DeliveryStreamName"`
 	Type   string   `json:"DeliveryStreamType"`
-	S3Conf *s3.Conf `json:"ExtendedS3DestinationConfiguration"`
+	S3Conf *s3.Conf `json:"S3DestinationConfiguration"`
 }
 
 // NewCreateInput provides constructor for CreateInput object

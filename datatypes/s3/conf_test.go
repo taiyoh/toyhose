@@ -57,9 +57,6 @@ func TestConf(t *testing.T) {
 		if mbP := c.BufferingHints.SizeInMBs; mbP != nil {
 			t.Error("BufferingHints.SizeInMBs is already assigned:", *mbP)
 		}
-		if flg := c.DataFormatConf.Enabled; flg != nil {
-			t.Error("DataFormatConf.Enabled is already assigned:", *flg)
-		}
 
 		c.FillDefaultValue()
 		cf := c.CompressionFormat
@@ -79,12 +76,6 @@ func TestConf(t *testing.T) {
 		} else if *mbP != 5 {
 			t.Error("wrong BufferingHints.SizeInMBs is assigned:", *mbP)
 		}
-
-		if flg := c.DataFormatConf.Enabled; flg == nil {
-			t.Error("DataFormatConf.Enabled should be assigned")
-		} else if !*flg {
-			t.Error("wrong DataFormatConf.Enabled is assigned:", *flg)
-		}
 	})
 
 	t.Run("correct with value filled", func(t *testing.T) {
@@ -103,9 +94,6 @@ func TestConf(t *testing.T) {
 		if mbP := c.BufferingHints.SizeInMBs; mbP == nil {
 			t.Error("BufferingHints.SizeInMBs should be assigned:", *mbP)
 		}
-		if flg := c.DataFormatConf.Enabled; flg == nil {
-			t.Error("DataFormatConf.Enabled should be assigned:", *flg)
-		}
 		c.FillDefaultValue()
 		if cf := c.CompressionFormat; *cf != "GZIP" {
 			t.Error("wrong CompressionFormat is assigned:", *cf)
@@ -115,9 +103,6 @@ func TestConf(t *testing.T) {
 		}
 		if mbP := c.BufferingHints.SizeInMBs; *mbP != 2 {
 			t.Error("wrong BufferingHints.SizeInMBs is assigned:", *mbP)
-		}
-		if flg := c.DataFormatConf.Enabled; *flg {
-			t.Error("wrong DataFormatConf.Enabled is assigned:", *flg)
 		}
 	})
 }

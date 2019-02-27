@@ -5,7 +5,7 @@ import (
 	"github.com/taiyoh/toyhose/errors"
 )
 
-// https://docs.aws.amazon.com/ja_jp/firehose/latest/APIReference/API_ExtendedS3DestinationConfiguration.html
+// https://docs.aws.amazon.com/ja_jp/firehose/latest/APIReference/API_S3DestinationConfiguration.html
 
 // Conf describes the configuration of a destination in Amazon S3
 type Conf struct {
@@ -13,8 +13,6 @@ type Conf struct {
 	RoleARN           string         `json:"RoleARN"`
 	BufferingHints    BufferingHints `json:"BufferingHints"`
 	CompressionFormat *string        `json:"CompressionFormat"` // default: UNCOMPRESSED
-	DataFormatConf    DataFormatConf `json:"DataFormatConversionConfiguration"`
-	ErrorOutputPrefix *string        `json:"ErrorOutputPrefix"`
 	Prefix            *string        `json:"Prefix"`
 }
 
@@ -69,7 +67,6 @@ func (c *Conf) FillDefaultValue() {
 	}
 
 	(&c.BufferingHints).FillDefaultValue()
-	(&c.DataFormatConf).FillDefaultValue()
 }
 
 // Validate provides validating each field

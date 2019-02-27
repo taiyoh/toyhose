@@ -35,7 +35,7 @@ func TestCreateDeliveryStream(t *testing.T) {
 		}
 	})
 
-	validRawJson := bytes.NewBufferString(`{"DeliveryStreamName":"foobar","DeliveryStreamType":"DirectPut","ExtendedS3DestinationConfiguration":{"BucketARN":"arn:aws:s3:::bucket_name","RoleARN":"arn:aws:iam::accoun_id:role/role_name"}}`)
+	validRawJson := bytes.NewBufferString(`{"DeliveryStreamName":"foobar","DeliveryStreamType":"DirectPut","S3DestinationConfiguration":{"BucketARN":"arn:aws:s3:::bucket_name","RoleARN":"arn:aws:iam::accoun_id:role/role_name"}}`)
 
 	t.Run("success request", func(t *testing.T) {
 		ctx := context.Background()
