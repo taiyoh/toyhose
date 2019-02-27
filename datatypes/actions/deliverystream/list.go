@@ -3,7 +3,6 @@ package deliverystream
 import (
 	"encoding/json"
 
-	"github.com/taiyoh/toyhose/datatypes/firehose"
 	"github.com/taiyoh/toyhose/errors"
 )
 
@@ -32,7 +31,7 @@ func (i ListInput) validateLimit() errors.Raised {
 	if lmPtr == nil {
 		return nil
 	}
-	if *lmPtr > 10000 {
+	if *lmPtr < 1 || 10000 < *lmPtr {
 		return errors.NewInvalidParameterValue("Limit")
 	}
 	return nil
@@ -54,7 +53,7 @@ func (i ListInput) validateExclusiveStartName() errors.Raised {
 
 func (i ListInput) validate() errors.Raised {
 	if i.Type != nil {
-		if _, err := firehose.RestoreStreamType(*i.Type); err != nil {
+		if err := validateType(*i.Type); err != nil {
 			return err
 		}
 	}

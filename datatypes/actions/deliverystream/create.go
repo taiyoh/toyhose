@@ -3,7 +3,6 @@ package deliverystream
 import (
 	"encoding/json"
 
-	"github.com/taiyoh/toyhose/datatypes/firehose"
 	"github.com/taiyoh/toyhose/datatypes/s3"
 	"github.com/taiyoh/toyhose/errors"
 )
@@ -34,7 +33,7 @@ func (i CreateInput) validate() errors.Raised {
 	if err := validateName(i.Name); err != nil {
 		return err
 	}
-	if _, err := firehose.RestoreStreamType(i.Type); err != nil {
+	if err := validateType(i.Type); err != nil {
 		return err
 	}
 	if s3conf := i.S3Conf; s3conf != nil {

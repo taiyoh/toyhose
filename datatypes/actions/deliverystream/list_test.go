@@ -23,8 +23,18 @@ func TestListInput(t *testing.T) {
 			true,
 		},
 		{
+			"zero Limit",
+			`{"Limit":0}`,
+			true,
+		},
+		{
 			"out-of-range Limit",
 			`{"Limit":10001}`,
+			true,
+		},
+		{
+			"empty DeliveryStreamType",
+			`{"DeliveryStreamType":""}`,
 			true,
 		},
 		{
