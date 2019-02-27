@@ -46,4 +46,21 @@ func TestDestinationMemory(t *testing.T) {
 	if origSource == dst.SourceARN {
 		t.Error("SourceARN not replaced")
 	}
+
+	source := arn.NewDeliveryStream("foo", "bar", "delivery-test")
+
+	dests := dRepo.FindBySource(ctx, source)
+	if len(dests) != 0 {
+		t.Error("already exists!")
+	}
+	for i := 0; i < 5; i++ {
+		dRepo.Save(ctx, &firehose.Destination{
+			ID:        dRepo.DispenseID(ctx),
+			SourceARN: source,
+		})
+	}
+	dests = dRepo.FindBySource(ctx, source)
+	if len(dests) != 5 {
+		t.Error("wtf!")
+	}
 }
