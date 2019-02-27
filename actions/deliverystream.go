@@ -8,6 +8,7 @@ import (
 	"github.com/taiyoh/toyhose/errors"
 )
 
+// DeliveryStream provides application service for deliverystream operation
 type DeliveryStream struct {
 	dsRepo    DeliveryStreamRepository
 	destRepo  DestinationRepository
@@ -15,10 +16,12 @@ type DeliveryStream struct {
 	accountID string
 }
 
+// NewDeliveryStream returns DeliveryStream service object
 func NewDeliveryStream(dsRepo DeliveryStreamRepository, destRepo DestinationRepository, region, accountID string) *DeliveryStream {
 	return &DeliveryStream{dsRepo, destRepo, region, accountID}
 }
 
+// Create provides operation for creating new delivery stream
 func (d *DeliveryStream) Create(input *port.Input, output *port.Output) {
 	ci, err := deliverystream.NewCreateInput(input.Arg())
 	if err != nil {
@@ -42,7 +45,7 @@ func (d *DeliveryStream) Create(input *port.Input, output *port.Output) {
 	ds = ds.Active()
 	d.dsRepo.Save(ctx, ds)
 
-	output.Set(&deliverystream.CreateOutput{ds.ARN.Code()}, nil)
+	output.Set(&deliverystream.CreateOutput{ARN: ds.ARN.Code()}, nil)
 }
 
 func (d *DeliveryStream) Describe(input *port.Input, output *port.Output) {
