@@ -12,14 +12,14 @@ type BufferingHints struct {
 
 func (h *BufferingHints) validateIntervalSeconds() errors.Raised {
 	if sPtr := h.IntervalInSeconds; sPtr != nil && (*sPtr < 60 || 900 < *sPtr) {
-		return errors.NewInvalidParameterValue("IntervalSeconds")
+		return errors.NewInvalidArgumentException("IntervalSeconds value is out of range")
 	}
 	return nil
 }
 
 func (h *BufferingHints) validateSizeInMBs() errors.Raised {
 	if bPtr := h.SizeInMBs; bPtr != nil && (*bPtr < 1 || 128 < *bPtr) {
-		return errors.NewInvalidParameterValue("SizeInMBs")
+		return errors.NewInvalidArgumentException("SizeInMBs value is out of range")
 	}
 	return nil
 }

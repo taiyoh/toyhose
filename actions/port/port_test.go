@@ -43,13 +43,14 @@ func TestInputAndOutput(t *testing.T) {
 		recorder := httptest.NewRecorder()
 		output.Set(map[string]interface{}{
 			"foo": "bar",
-		}, errors.NewMissingParameter("aaa"))
+		}, errors.NewInvalidArgumentException("aaa is required"))
 		output.Fill(recorder)
 		if recorder.Code != http.StatusBadRequest {
 			t.Errorf(`msg="captured wrong response code" expected="400" actual="%d"`, recorder.Code)
 		}
-		if b := recorder.Body.String(); b != `{"foo":"bar"}` {
-			t.Errorf(`msg="captured wrong body" expected='{"foo":"bar"}' actual="%s"`, b)
+		expected := `{"__type":"InvalidArgumentException","message":"aaa is required"}`
+		if b := recorder.Body.String(); b != expected {
+			t.Errorf(`msg="captured wrong body" expected='%s' actual="%s"`, expected, b)
 		}
 	})
 }

@@ -19,23 +19,23 @@ type Conf struct {
 func (c *Conf) validateARN() errors.Raised {
 	bArn := c.BucketARN
 	if bArn == "" {
-		return errors.NewMissingParameter("BucketARN")
+		return errors.NewInvalidArgumentException("BucketARN is required")
 	}
 	if l := len(bArn); 2048 < l {
-		return errors.NewInvalidParameterValue("BucketARN")
+		return errors.NewInvalidArgumentException("BucketARN value length is over")
 	}
 	if _, err := arn.RestoreS3FromRaw(bArn); err != nil {
-		return errors.NewInvalidArgumentException("BucketARN")
+		return errors.NewInvalidArgumentException("BucketARN value is invalid format")
 	}
 	rArn := c.RoleARN
 	if rArn == "" {
-		return errors.NewMissingParameter("RoleARN")
+		return errors.NewInvalidArgumentException("RoleARN is required")
 	}
 	if l := len(rArn); 512 < l {
-		return errors.NewInvalidParameterValue("RoleARN")
+		return errors.NewInvalidArgumentException("RoleARN value length is over")
 	}
 	if _, err := arn.RestoreIAMRoleFromRaw(rArn); err != nil {
-		return errors.NewInvalidArgumentException("RoleARN")
+		return errors.NewInvalidArgumentException("RoleARN value is invalid format")
 	}
 	return nil
 }

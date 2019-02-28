@@ -32,7 +32,7 @@ func (i ListInput) validateLimit() errors.Raised {
 		return nil
 	}
 	if *lmPtr < 1 || 10000 < *lmPtr {
-		return errors.NewInvalidParameterValue("Limit")
+		return errors.NewInvalidArgumentException("Limit value is out of range")
 	}
 	return nil
 }
@@ -43,10 +43,10 @@ func (i ListInput) validateExclusiveStartName() errors.Raised {
 		return nil
 	}
 	if len(*exName) > 64 {
-		return errors.NewInvalidParameterValue("ExclusiveStartDeliveryStreamName")
+		return errors.NewInvalidArgumentException("ExclusiveStartDeliveryStreamName value length is over")
 	}
 	if !nameRE.MatchString(*exName) {
-		return errors.NewInvalidArgumentException("ExclusiveStartDeliveryStreamName")
+		return errors.NewInvalidArgumentException("ExclusiveStartDeliveryStreamName value is invalid format")
 	}
 	return nil
 }

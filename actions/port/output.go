@@ -22,7 +22,10 @@ func (o *Output) Set(r interface{}, err errors.Raised) {
 // Fill provides setup response
 func (o *Output) Fill(res http.ResponseWriter) {
 	if err := o.err; err != nil {
-		res.WriteHeader(err.Code())
+		code, body := err.Output()
+		res.WriteHeader(code)
+		res.Write(body)
+		return
 	}
 	if resource := o.resource; resource != nil {
 		out, _ := json.Marshal(resource)

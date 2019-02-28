@@ -12,8 +12,8 @@ func validateType(typ string) errors.Raised {
 	}
 	switch err.(firehose.Error) {
 	case firehose.ErrRequired:
-		return errors.NewMissingParameter("DeliveryStreamType")
+		return errors.NewInvalidArgumentException("DeliveryStreamType is required")
 	default:
-		return errors.NewInvalidArgumentException("DeliveryStreamType")
+		return errors.NewInvalidArgumentException("DeliveryStreamType value is invalid format")
 	}
 }

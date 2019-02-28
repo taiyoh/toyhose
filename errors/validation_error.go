@@ -12,6 +12,10 @@ func (*ValidationError) Error() string {
 	return "invalid input"
 }
 
-func (*ValidationError) Code() int {
+func (*ValidationError) code() int {
 	return http.StatusBadRequest
+}
+
+func (v *ValidationError) Output() (int, []byte) {
+	return v.code(), marshalOutput("ValidationError", v.Error())
 }
