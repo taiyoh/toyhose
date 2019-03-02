@@ -51,6 +51,7 @@ func (d *DeliveryStream) Create(input *port.Input, output *port.Output) {
 func (d *DeliveryStream) Describe(input *port.Input, output *port.Output) {
 }
 
+// List provides listing delivery stream names
 func (d *DeliveryStream) List(input *port.Input, output *port.Output) {
 	li, err := deliverystream.NewListInput(input.Arg())
 	if err != nil {
@@ -60,13 +61,9 @@ func (d *DeliveryStream) List(input *port.Input, output *port.Output) {
 	ctx := input.Ctx()
 	dsARN := arn.NewDeliveryStream(d.region, d.accountID, li.ExclusiveStartDeliveryStreamName())
 	streams, hasNext := d.dsRepo.FindMulti(ctx, dsARN, *li.Limit)
-
 	resource := &deliverystream.ListOutput{
-		Names:   make([]string, 0, len(streams)),
+		Names:   streamCollection(streams).Names(),
 		HasNext: hasNext,
-	}
-	for _, stream := range streams {
-		resource.Names = append(resource.Names, stream.ARN.Name())
 	}
 
 	output.Set(resource, nil)

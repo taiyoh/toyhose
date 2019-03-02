@@ -3,6 +3,8 @@ package actions_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -10,7 +12,9 @@ import (
 
 	"github.com/taiyoh/toyhose/actions"
 	"github.com/taiyoh/toyhose/actions/port"
+	"github.com/taiyoh/toyhose/datatypes/actions/deliverystream"
 	"github.com/taiyoh/toyhose/datatypes/arn"
+	"github.com/taiyoh/toyhose/datatypes/firehose"
 	"github.com/taiyoh/toyhose/gateway"
 )
 
@@ -76,6 +80,57 @@ func TestCreateDeliveryStream(t *testing.T) {
 		out.Fill(r)
 		if r.Code != http.StatusBadRequest {
 			t.Error("wrong code captured")
+		}
+	})
+}
+
+func TestListDeliveryStream(t *testing.T) {
+	dsRepo := gateway.NewDeliveryStream()
+	dstRepo := gateway.NewDestination()
+	app := actions.NewDeliveryStream(dsRepo, dstRepo, region, accountID)
+
+	ctx := context.Background()
+	for i := 1; i <= 12; i++ {
+		dsARN := arn.NewDeliveryStream(region, accountID, fmt.Sprintf("stream-no%d", i))
+		ds, _ := firehose.NewDeliveryStream(dsARN, "DirectPut")
+		dsRepo.Save(ctx, ds)
+	}
+
+	t.Run("invalid input", func(t *testing.T) {
+		in, out := port.New(ioutil.NopCloser(bytes.NewBufferString("{}[")))
+		app.List(in, out)
+		rec := httptest.NewRecorder()
+		out.Fill(rec)
+		if rec.Code != http.StatusBadRequest {
+			t.Error("wrong code captured")
+		}
+	})
+
+	t.Run("no parameter assigned", func(t *testing.T) {
+		in, out := port.New(ioutil.NopCloser(bytes.NewBufferString("{}")))
+		app.List(in, out)
+		rec := httptest.NewRecorder()
+		out.Fill(rec)
+		if rec.Code != http.StatusOK {
+			t.Error("wrong code captured")
+		}
+		o := deliverystream.ListOutput{}
+		if err := json.Unmarshal(rec.Body.Bytes(), &o); err != nil {
+			t.Error("unmarshal error:", err)
+			return
+		}
+		if !o.HasNext {
+			t.Error("HasNext should be true")
+		}
+		if l := len(o.Names); l != 10 {
+			t.Errorf("wrong list returns. len:%d", l)
+			return
+		}
+		for i := 1; i <= 10; i++ {
+			expected := fmt.Sprintf("stream-no%d", i)
+			if n := o.Names[i-1]; n != expected {
+				t.Errorf("[no.%d] expected: %s actual: %s", i, expected, n)
+			}
 		}
 	})
 }

@@ -44,6 +44,11 @@ func (d *DeliveryStream) clone() *DeliveryStream {
 	}
 }
 
+// StreamName returns delivery stream name as string
+func (d *DeliveryStream) StreamName() string {
+	return d.ARN.Name()
+}
+
 // Active provides make status active and update Updated field
 func (d *DeliveryStream) Active() *DeliveryStream {
 	newDS := d.clone()
