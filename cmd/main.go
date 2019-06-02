@@ -17,6 +17,6 @@ func main() {
 	dsRepo := gateway.NewDeliveryStream()
 	destRepo := gateway.NewDestination()
 
-	th := toyhose.New(region, accountID, dsRepo, destRepo)
+	th := toyhose.NewServe(region, accountID, dsRepo, destRepo)
 	http.ListenAndServe(":8080", th.ServeMux())
 }

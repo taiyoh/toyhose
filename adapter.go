@@ -16,7 +16,7 @@ type Adapter struct {
 	destRepo  *gateway.Destination
 }
 
-func New(region, accountID string, dsRepo *gateway.DeliveryStream, destRepo *gateway.Destination) *Adapter {
+func NewServe(region, accountID string, dsRepo *gateway.DeliveryStream, destRepo *gateway.Destination) *Adapter {
 	mux := http.NewServeMux()
 	a := &Adapter{
 		mux:       mux,
