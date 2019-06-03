@@ -25,3 +25,13 @@ func RestoreStreamType(typ string) (StreamType, error) {
 	}
 	return t, nil
 }
+
+// String returns stream type name as string.
+func (t StreamType) String() string {
+	for name, typ := range streamTypeMap {
+		if t == typ {
+			return name
+		}
+	}
+	panic("type not found")
+}

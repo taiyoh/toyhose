@@ -35,20 +35,57 @@ func (d *DeliveryStream) Create(input *port.Input, output *port.Output) {
 		return
 	}
 	ds, _ := firehose.NewDeliveryStream(dsARN, ci.Type)
-
-	d.destRepo.Save(ctx, &firehose.Destination{
-		ID:        d.destRepo.DispenseID(ctx),
-		SourceARN: ds.ARN,
-		S3Conf:    ci.S3Conf,
-	})
-
-	ds = ds.Active()
 	d.dsRepo.Save(ctx, ds)
+
+	// TODO: execute as asynchronous
+	{
+		// add destination txn
+		d.destRepo.Save(ctx, &firehose.Destination{
+			ID:        d.destRepo.DispenseID(ctx),
+			SourceARN: dsARN,
+			S3Conf:    ci.S3Conf,
+		})
+		// activate txn
+		ds = ds.Active()
+		d.dsRepo.Save(ctx, ds)
+	}
 
 	output.Set(&deliverystream.CreateOutput{ARN: ds.ARN.Code()}, nil)
 }
 
+// Describe provides operation for output delivery stream definition.
 func (d *DeliveryStream) Describe(input *port.Input, output *port.Output) {
+	di, err := deliverystream.NewDescribeInput(input.Arg())
+	if err != nil {
+		output.Set(nil, err)
+		return
+	}
+	ctx := input.Ctx()
+	ds := d.dsRepo.FindByName(ctx, di.Name)
+	if ds == nil {
+		output.Set(nil, errors.NewInvalidArgumentException("StreamName is invalid"))
+		return
+	}
+	dests := d.destRepo.FindMultiByARN(ctx, ds.ARN)
+
+	list := []*deliverystream.Destination{}
+	for _, d := range dests {
+		list = append(list, &deliverystream.Destination{
+			ID:     d.ID.String(),
+			S3Conf: d.S3Conf,
+		})
+	}
+
+	output.Set(&deliverystream.DescribeOutput{
+		Created:         deliverystream.NewDeliveryStreamTime(ds.Created),
+		Updated:         deliverystream.NewDeliveryStreamTime(ds.Updated),
+		ARN:             ds.ARN.Code(),
+		Status:          ds.Status.String(),
+		Name:            ds.ARN.Name(),
+		Type:            ds.Type.String(),
+		MoreDestination: false,
+		Destinations:    list,
+	}, nil)
 }
 
 // List provides listing delivery stream names

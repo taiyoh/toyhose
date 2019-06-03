@@ -8,6 +8,11 @@ import (
 // DestinationID provides identification of Destination
 type DestinationID string
 
+// String returns destination id as string.
+func (i DestinationID) String() string {
+	return string(i)
+}
+
 // Destination provides destination for a delivery stream
 type Destination struct {
 	ID        DestinationID
