@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strings"
@@ -17,6 +18,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/google/uuid"
 )
+
+func init() {
+	time.Local = nil
+}
 
 var (
 	consumers map[int64]consumer
@@ -33,17 +38,31 @@ func addConsumer(c consumer) {
 }
 
 type extendedS3Consumer struct {
-	id       int64
-	source   <-chan []byte
-	conf     *firehose.ExtendedS3DestinationConfiguration
-	captured []byte
+	id           int64
+	deliveryName string
+	source       <-chan *firehose.Record
+	conf         *firehose.ExtendedS3DestinationConfiguration
+	captured     []byte
 }
 
 func (c *extendedS3Consumer) ID() int64 {
 	return c.id
 }
 
-var s3cli *s3.S3
+var (
+	s3cli   *s3.S3
+	awsConf *aws.Config
+)
+
+func awsConfig() *aws.Config {
+	if awsConf != nil {
+		return awsConf
+	}
+	awsConf = aws.NewConfig().
+		WithRegion(os.Getenv("AWS_DEFAULT_REGION")).
+		WithCredentials(credentials.NewEnvCredentials())
+	return awsConf
+}
 
 func s3Client() *s3.S3 {
 	if s3cli != nil {
@@ -53,50 +72,85 @@ func s3Client() *s3.S3 {
 	if endpoint == "" {
 		panic("require S3_ENDPOINT_URL")
 	}
-	conf := aws.NewConfig().
-		WithRegion(os.Getenv("AWS_DEFAULT_REGION")).
-		WithEndpoint(endpoint).
-		WithCredentials(credentials.NewEnvCredentials())
-	s3cli = s3.New(session.New(conf))
+	s3cli = s3.New(session.New(awsConfig().WithEndpoint(endpoint)))
 	return s3cli
 }
 
-func (c *extendedS3Consumer) dispatch(ctx context.Context, data []byte) {
-	bucketName := strings.Trim(*c.conf.BucketARN, "arn:aws:s3:::")
-	cli := s3Client()
+type storeToS3Resource struct {
+	deliveryName       string
+	arn                string
+	prefix             string
+	shouldGZipCompress bool
+	ts                 time.Time
+}
+
+func (r storeToS3Resource) objectName() string {
+	return fmt.Sprintf("%s-1-%s-%s", r.deliveryName, r.ts.Format("2006-01-02-15-04-05"), uuid.New())
+}
+
+func (r storeToS3Resource) keyName() string {
+	prefix := r.prefix
+	if !strings.HasSuffix(prefix, "/") {
+		prefix = prefix + "/"
+	}
+	return fmt.Sprintf("%s%s", prefix, r.objectName())
+}
+
+func storeToS3(ctx context.Context, resource storeToS3Resource, data []byte) {
+	resource.ts = time.Now()
+	bucketName := strings.Trim(resource.arn, "arn:aws:s3:::")
 	var seekable []byte
-	if *c.conf.CompressionFormat == "GZIP" {
+	if resource.shouldGZipCompress {
 		b := bytes.NewBuffer([]byte{})
 		gzip.NewWriter(b).Write(data)
 		seekable = b.Bytes()
 	} else {
 		seekable = data
 	}
-	key := fmt.Sprintf("%s%s", *c.conf.Prefix, uuid.New())
-	cli.PutObjectWithContext(ctx, &s3.PutObjectInput{
+	key := resource.keyName()
+	input := &s3.PutObjectInput{
 		Bucket: &bucketName,
 		Body:   bytes.NewReader(seekable),
 		Key:    &key,
-	})
+	}
+	cli := s3Client()
+	for i := 0; i < 30; i++ {
+		switch _, err := cli.PutObjectWithContext(ctx, input); err {
+		case nil, context.Canceled:
+			return
+		default:
+			// TODO: logging
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
 }
 
 func (c *extendedS3Consumer) Run(ctx context.Context) {
 	size := int(*c.conf.BufferingHints.SizeInMBs * 1024 * 1024)
 	c.captured = make([]byte, 0, size)
 	tick := time.Tick(time.Duration(*c.conf.BufferingHints.IntervalInSeconds) * time.Second)
+	resource := storeToS3Resource{
+		deliveryName:       c.deliveryName,
+		arn:                *c.conf.BucketARN,
+		prefix:             *c.conf.Prefix,
+		shouldGZipCompress: *c.conf.CompressionFormat == "GZIP",
+	}
 	for {
 		select {
 		case <-ctx.Done():
-			c.dispatch(ctx, c.captured)
+			go storeToS3(ctx, resource, c.captured)
 			return
-		case b := <-c.source:
+		case r := <-c.source:
+			b, _ := base64.StdEncoding.DecodeString(string(r.Data))
 			c.captured = append(c.captured, b...)
 			if len(c.captured) >= size {
-				go c.dispatch(ctx, c.captured)
+				go storeToS3(ctx, resource, c.captured)
 				c.captured = make([]byte, 0, size)
+				// reset timer
+				tick = time.Tick(time.Duration(*c.conf.BufferingHints.IntervalInSeconds) * time.Second)
 			}
 		case <-tick:
-			go c.dispatch(ctx, c.captured)
+			go storeToS3(ctx, resource, c.captured)
 			c.captured = make([]byte, 0, size)
 		}
 	}
