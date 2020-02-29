@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/firehose"
@@ -89,6 +90,9 @@ func storeToS3(ctx context.Context, resource storeToS3Resource, ts time.Time, da
 		case nil, context.Canceled:
 			return
 		default:
+			if baseErr, ok := err.(awserr.Error); ok && baseErr.Code() == "RequestCanceled" {
+				return
+			}
 			// TODO: logging
 			time.Sleep(100 * time.Millisecond)
 		}
@@ -109,7 +113,9 @@ func (c *s3Destination) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			storeToS3(ctx, resource, time.Now(), c.captured)
+			newCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			storeToS3(newCtx, resource, time.Now(), c.captured)
 			return
 		case r := <-c.source:
 			c.captured = append(c.captured, r...)
