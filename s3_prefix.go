@@ -43,13 +43,13 @@ func extractNamespace(b []byte, ts time.Time) ([]byte, bool) {
 
 func keyPrefix(pref string, ts time.Time) string {
 	if pref == "" {
-		return ts.Format("2006/01/02/")
+		return ts.Format("2006/01/02/15/")
 	}
 	b, processed := extractNamespace([]byte(pref), ts)
 	if processed {
 		return string(b)
 	}
-	return fmt.Sprintf("%s/%s", string(b), ts.Format("2006/01/02/"))
+	return fmt.Sprintf("%s/%s", string(b), ts.Format("2006/01/02/15/"))
 }
 
 func keyErrPrefix(pref string, ts time.Time, errType firehoseErrorType) string {

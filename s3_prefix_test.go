@@ -21,7 +21,7 @@ func TestS3Prefix(t *testing.T) {
 			label:     "case:1",
 			errPrefix: "myFirehoseFailures/!{firehose:error-output-type}/",
 			expected: [2]string{
-				"^2018/08/27/$",
+				"^2018/08/27/10/$",
 				"^myFirehoseFailures/processing-failed/$",
 			},
 		},
@@ -48,7 +48,7 @@ func TestS3Prefix(t *testing.T) {
 			label:  "case:5",
 			prefix: "myFirehosePrefix",
 			expected: [2]string{
-				"^myFirehosePrefix/2018/08/27/$",
+				"^myFirehosePrefix/2018/08/27/10/$",
 				"^$",
 			},
 		},
