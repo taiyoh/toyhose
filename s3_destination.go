@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -23,29 +22,15 @@ func init() {
 	time.Local = nil
 }
 
-var (
-	consumers map[int64]consumer
-	idSeed    int64
-)
-
-func newID() int64 {
-	atomic.AddInt64(&idSeed, 1)
-	return idSeed
-}
-
-func addConsumer(c consumer) {
-	consumers[c.ID()] = c
-}
-
-type extendedS3Consumer struct {
+type s3Destination struct {
 	id           int64
 	deliveryName string
 	source       <-chan *firehose.Record
-	conf         *firehose.ExtendedS3DestinationConfiguration
+	conf         *firehose.S3DestinationConfiguration
 	captured     []byte
 }
 
-func (c *extendedS3Consumer) ID() int64 {
+func (c *s3Destination) ID() int64 {
 	return c.id
 }
 
@@ -78,27 +63,13 @@ func s3Client() *s3.S3 {
 
 type storeToS3Resource struct {
 	deliveryName       string
-	arn                string
+	bucketName         string
 	prefix             string
 	shouldGZipCompress bool
-	ts                 time.Time
-}
-
-func (r storeToS3Resource) objectName() string {
-	return fmt.Sprintf("%s-1-%s-%s", r.deliveryName, r.ts.Format("2006-01-02-15-04-05"), uuid.New())
-}
-
-func (r storeToS3Resource) keyName() string {
-	prefix := r.prefix
-	if !strings.HasSuffix(prefix, "/") {
-		prefix = prefix + "/"
-	}
-	return fmt.Sprintf("%s%s", prefix, r.objectName())
 }
 
 func storeToS3(ctx context.Context, resource storeToS3Resource, data []byte) {
-	resource.ts = time.Now()
-	bucketName := strings.Trim(resource.arn, "arn:aws:s3:::")
+	ts := time.Now().UTC()
 	var seekable []byte
 	if resource.shouldGZipCompress {
 		b := bytes.NewBuffer([]byte{})
@@ -107,9 +78,10 @@ func storeToS3(ctx context.Context, resource storeToS3Resource, data []byte) {
 	} else {
 		seekable = data
 	}
-	key := resource.keyName()
+	pref := strings.TrimSuffix(keyPrefix(resource.prefix, ts), "/")
+	key := fmt.Sprintf("%s/%s-1-%s-%s", pref, resource.deliveryName, ts.Format("2006-01-02-15-04-05"), uuid.New())
 	input := &s3.PutObjectInput{
-		Bucket: &bucketName,
+		Bucket: &resource.bucketName,
 		Body:   bytes.NewReader(seekable),
 		Key:    &key,
 	}
@@ -125,20 +97,20 @@ func storeToS3(ctx context.Context, resource storeToS3Resource, data []byte) {
 	}
 }
 
-func (c *extendedS3Consumer) Run(ctx context.Context) {
+func (c *s3Destination) Run(ctx context.Context) {
 	size := int(*c.conf.BufferingHints.SizeInMBs * 1024 * 1024)
 	c.captured = make([]byte, 0, size)
 	tick := time.Tick(time.Duration(*c.conf.BufferingHints.IntervalInSeconds) * time.Second)
 	resource := storeToS3Resource{
 		deliveryName:       c.deliveryName,
-		arn:                *c.conf.BucketARN,
+		bucketName:         strings.Trim(*c.conf.BucketARN, "arn:aws:s3:::"),
 		prefix:             *c.conf.Prefix,
 		shouldGZipCompress: *c.conf.CompressionFormat == "GZIP",
 	}
 	for {
 		select {
 		case <-ctx.Done():
-			go storeToS3(ctx, resource, c.captured)
+			storeToS3(ctx, resource, c.captured)
 			return
 		case r := <-c.source:
 			b, _ := base64.StdEncoding.DecodeString(string(r.Data))
@@ -156,7 +128,7 @@ func (c *extendedS3Consumer) Run(ctx context.Context) {
 	}
 }
 
-type consumer interface {
+type destination interface {
 	ID() int64
 	Run(context.Context)
 }
