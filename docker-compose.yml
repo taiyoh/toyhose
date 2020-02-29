@@ -1,0 +1,17 @@
+version: "3"
+
+services:
+  s3:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+    volumes:
+      - minio:/data
+    environment:
+      - MINIO_ACCESS_KEY=XXXXXXXX
+      - MINIO_SECRET_KEY=YYYYYYYY
+    command: server /data
+
+volumes:
+  minio:
+    driver: local

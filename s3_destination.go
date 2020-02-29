@@ -57,7 +57,7 @@ func s3Client() *s3.S3 {
 	if endpoint == "" {
 		panic("require S3_ENDPOINT_URL")
 	}
-	s3cli = s3.New(session.New(awsConfig().WithEndpoint(endpoint)))
+	s3cli = s3.New(session.New(awsConfig().WithEndpoint(endpoint).WithS3ForcePathStyle(true).WithDisableSSL(true)))
 	return s3cli
 }
 
@@ -68,12 +68,16 @@ type storeToS3Resource struct {
 	shouldGZipCompress bool
 }
 
-func storeToS3(ctx context.Context, resource storeToS3Resource, data []byte) {
-	ts := time.Now().UTC()
+func storeToS3(ctx context.Context, resource storeToS3Resource, ts time.Time, data []byte) {
+	if len(data) < 1 {
+		return
+	}
 	var seekable []byte
 	if resource.shouldGZipCompress {
 		b := bytes.NewBuffer([]byte{})
-		gzip.NewWriter(b).Write(data)
+		w := gzip.NewWriter(b)
+		w.Write(data)
+		w.Close()
 		seekable = b.Bytes()
 	} else {
 		seekable = data
@@ -110,19 +114,19 @@ func (c *s3Destination) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			storeToS3(ctx, resource, c.captured)
+			storeToS3(ctx, resource, time.Now(), c.captured)
 			return
 		case r := <-c.source:
 			b, _ := base64.StdEncoding.DecodeString(string(r.Data))
 			c.captured = append(c.captured, b...)
 			if len(c.captured) >= size {
-				go storeToS3(ctx, resource, c.captured)
+				go storeToS3(ctx, resource, time.Now(), c.captured)
 				c.captured = make([]byte, 0, size)
 				// reset timer
 				tick = time.Tick(time.Duration(*c.conf.BufferingHints.IntervalInSeconds) * time.Second)
 			}
 		case <-tick:
-			go storeToS3(ctx, resource, c.captured)
+			go storeToS3(ctx, resource, time.Now(), c.captured)
 			c.captured = make([]byte, 0, size)
 		}
 	}
