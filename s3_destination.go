@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"encoding/base64"
 	"fmt"
 	"os"
 	"strings"
@@ -23,15 +22,10 @@ func init() {
 }
 
 type s3Destination struct {
-	id           int64
 	deliveryName string
-	source       <-chan *firehose.Record
+	source       <-chan []byte
 	conf         *firehose.S3DestinationConfiguration
 	captured     []byte
-}
-
-func (c *s3Destination) ID() int64 {
-	return c.id
 }
 
 var (
@@ -104,12 +98,13 @@ func storeToS3(ctx context.Context, resource storeToS3Resource, ts time.Time, da
 func (c *s3Destination) Run(ctx context.Context) {
 	size := int(*c.conf.BufferingHints.SizeInMBs * 1024 * 1024)
 	c.captured = make([]byte, 0, size)
-	tick := time.Tick(time.Duration(*c.conf.BufferingHints.IntervalInSeconds) * time.Second)
+	dur := time.Duration(*c.conf.BufferingHints.IntervalInSeconds) * time.Second
+	tick := time.Tick(dur)
 	resource := storeToS3Resource{
 		deliveryName:       c.deliveryName,
-		bucketName:         strings.Trim(*c.conf.BucketARN, "arn:aws:s3:::"),
+		bucketName:         strings.ReplaceAll(*c.conf.BucketARN, "arn:aws:s3:::", ""),
 		prefix:             *c.conf.Prefix,
-		shouldGZipCompress: *c.conf.CompressionFormat == "GZIP",
+		shouldGZipCompress: c.conf.CompressionFormat != nil && *c.conf.CompressionFormat == "GZIP",
 	}
 	for {
 		select {
@@ -117,22 +112,16 @@ func (c *s3Destination) Run(ctx context.Context) {
 			storeToS3(ctx, resource, time.Now(), c.captured)
 			return
 		case r := <-c.source:
-			b, _ := base64.StdEncoding.DecodeString(string(r.Data))
-			c.captured = append(c.captured, b...)
+			c.captured = append(c.captured, r...)
 			if len(c.captured) >= size {
-				go storeToS3(ctx, resource, time.Now(), c.captured)
+				storeToS3(ctx, resource, time.Now(), c.captured)
 				c.captured = make([]byte, 0, size)
 				// reset timer
-				tick = time.Tick(time.Duration(*c.conf.BufferingHints.IntervalInSeconds) * time.Second)
+				tick = time.Tick(dur)
 			}
 		case <-tick:
-			go storeToS3(ctx, resource, time.Now(), c.captured)
+			storeToS3(ctx, resource, time.Now(), c.captured)
 			c.captured = make([]byte, 0, size)
 		}
 	}
-}
-
-type destination interface {
-	ID() int64
-	Run(context.Context)
 }
