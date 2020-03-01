@@ -34,7 +34,7 @@ func (s *DeliveryStreamService) Create(ctx context.Context, input []byte) (*fire
 	}
 	arn := s.arnName(*i.DeliveryStreamName)
 	dsCtx, dsCancel := context.WithCancel(context.Background())
-	source := make(chan []byte, 1024)
+	source := make(chan *deliveryRecord, 128)
 	ds := &deliveryStream{
 		arn:       arn,
 		source:    source,
@@ -106,8 +106,7 @@ func putData(ds *deliveryStream, records []*firehose.Record) []string {
 			dst = record.Data
 		}
 		recID := uuid.New().String()
-		// TODO: bring recID into source channel
-		ds.source <- dst
+		ds.source <- &deliveryRecord{id: recID, data: dst}
 		recordIDs = append(recordIDs, recID)
 	}
 	return recordIDs

@@ -20,10 +20,11 @@ import (
 
 type s3Destination struct {
 	deliveryName string
-	source       <-chan []byte
+	source       <-chan *deliveryRecord
 	conf         *firehose.S3DestinationConfiguration
 	closer       context.CancelFunc
-	captured     []byte
+	captured     []*deliveryRecord
+	capturedSize int
 }
 
 var (
@@ -60,7 +61,11 @@ type storeToS3Resource struct {
 	shouldGZipCompress bool
 }
 
-func storeToS3(ctx context.Context, resource storeToS3Resource, ts time.Time, data []byte) {
+func storeToS3(ctx context.Context, resource storeToS3Resource, ts time.Time, records []*deliveryRecord) {
+	data := make([]byte, 0, 1024*1024)
+	for _, rec := range records {
+		data = append(data, rec.data...)
+	}
 	if len(data) < 1 {
 		return
 	}
@@ -98,7 +103,7 @@ func storeToS3(ctx context.Context, resource storeToS3Resource, ts time.Time, da
 
 func (c *s3Destination) Run(ctx context.Context) {
 	size := int(*c.conf.BufferingHints.SizeInMBs * 1024 * 1024)
-	c.captured = make([]byte, 0, size)
+	c.captured = make([]*deliveryRecord, 0, 2048)
 	dur := time.Duration(*c.conf.BufferingHints.IntervalInSeconds) * time.Second
 	tick := time.Tick(dur)
 	resource := storeToS3Resource{
@@ -115,16 +120,17 @@ func (c *s3Destination) Run(ctx context.Context) {
 			storeToS3(newCtx, resource, time.Now(), c.captured)
 			return
 		case r := <-c.source:
-			c.captured = append(c.captured, r...)
-			if len(c.captured) >= size {
+			c.captured = append(c.captured, r)
+			c.capturedSize += len(r.data)
+			if c.capturedSize >= size {
 				storeToS3(ctx, resource, time.Now(), c.captured)
-				c.captured = make([]byte, 0, size)
+				c.captured = make([]*deliveryRecord, 0, 2048)
 				// reset timer
 				tick = time.Tick(dur)
 			}
 		case <-tick:
 			storeToS3(ctx, resource, time.Now(), c.captured)
-			c.captured = make([]byte, 0, size)
+			c.captured = make([]*deliveryRecord, 0, 2048)
 		}
 	}
 }

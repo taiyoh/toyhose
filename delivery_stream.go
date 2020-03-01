@@ -8,7 +8,7 @@ import (
 
 type deliveryStream struct {
 	arn       string
-	source    chan []byte
+	source    chan *deliveryRecord
 	closer    context.CancelFunc
 	s3Dest    *s3Destination
 	createdAt time.Time
@@ -16,7 +16,15 @@ type deliveryStream struct {
 
 func (d *deliveryStream) Close() {
 	d.closer()
+	if d.s3Dest != nil {
+		d.s3Dest.Close()
+	}
 	close(d.source)
+}
+
+type deliveryRecord struct {
+	id   string
+	data []byte
 }
 
 type deliveryStreamPool struct {

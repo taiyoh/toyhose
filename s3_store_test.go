@@ -82,7 +82,7 @@ func TestStoreToS3ForRawData(t *testing.T) {
 	ts := time.Now()
 
 	content := "!!!!!!!!!!!!!!!!!!!!!!!!"
-	storeToS3(context.Background(), r, ts, []byte(content))
+	storeToS3(context.Background(), r, ts, []*deliveryRecord{{id: "foobar", data: []byte(content)}})
 	prefix := ts.Format("2006/01/02/15/")
 	out, err := s3cli.ListObjects(&s3.ListObjectsInput{
 		Bucket: &bucketName,
@@ -133,7 +133,7 @@ func TestStoreToS3ForCompressedData(t *testing.T) {
 
 	content := "!!!!!!!!!!!!!!!!!!!!!!!!"
 	r.shouldGZipCompress = true
-	storeToS3(context.Background(), r, ts, []byte(content))
+	storeToS3(context.Background(), r, ts, []*deliveryRecord{{id: "foobar", data: []byte(content)}})
 	prefix := ts.Format("2006/01/02/15/")
 	out, err := s3cli.ListObjects(&s3.ListObjectsInput{
 		Bucket: &bucketName,

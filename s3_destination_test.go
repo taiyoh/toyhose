@@ -22,7 +22,7 @@ func TestS3DestinationForExceededDataSize(t *testing.T) {
 	}
 	defer closer()
 
-	ch := make(chan []byte, 10)
+	ch := make(chan *deliveryRecord, 128)
 	dst := &s3Destination{
 		deliveryName: "foobar",
 		source:       ch,
@@ -47,7 +47,7 @@ func TestS3DestinationForExceededDataSize(t *testing.T) {
 	sent := 0
 	oneMB := 1 * 1024 * 1024
 	for sent < oneMB {
-		ch <- b
+		ch <- &deliveryRecord{id: uuid.New().String(), data: b}
 		sent += len(b)
 	}
 	var obj *s3.Object
@@ -63,7 +63,7 @@ func TestS3DestinationForExceededDataSize(t *testing.T) {
 			obj = out.Contents[0]
 			break
 		}
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 	if obj == nil {
 		t.Fatal("s3 object not found")
@@ -93,7 +93,7 @@ func TestS3DestinationForExceededInterval(t *testing.T) {
 	}
 	defer closer()
 
-	ch := make(chan []byte, 10)
+	ch := make(chan *deliveryRecord, 128)
 	dst := &s3Destination{
 		deliveryName: "foobar",
 		source:       ch,
@@ -116,7 +116,7 @@ func TestS3DestinationForExceededInterval(t *testing.T) {
 	}
 	b = append(b, []byte("\n")...)
 	for i := 0; i < 3; i++ {
-		ch <- b
+		ch <- &deliveryRecord{id: uuid.New().String(), data: b}
 		time.Sleep(800 * time.Millisecond)
 	}
 	var objects []*s3.Object
