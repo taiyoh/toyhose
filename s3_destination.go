@@ -18,14 +18,11 @@ import (
 	"github.com/google/uuid"
 )
 
-func init() {
-	time.Local = nil
-}
-
 type s3Destination struct {
 	deliveryName string
 	source       <-chan []byte
 	conf         *firehose.S3DestinationConfiguration
+	closer       context.CancelFunc
 	captured     []byte
 }
 
@@ -130,4 +127,8 @@ func (c *s3Destination) Run(ctx context.Context) {
 			c.captured = make([]byte, 0, size)
 		}
 	}
+}
+
+func (c *s3Destination) Close() {
+	c.closer()
 }
