@@ -1,8 +1,9 @@
 package toyhose
 
 import (
+	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,20 +16,19 @@ import (
 func TestCreateDeliveryRequest(t *testing.T) {
 	mux := http.ServeMux{}
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		body, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		t.Logf("method: %s, path: %s", r.Method, r.URL.Path)
-		t.Logf("headers: %v", r.Header)
-		t.Logf("body: %s", string(body))
 		i := firehose.CreateDeliveryStreamInput{}
-		if err := json.Unmarshal(body, &i); err != nil {
+		b := bytes.NewBuffer([]byte{})
+		if err := json.NewDecoder(io.TeeReader(r.Body, b)).Decode(&i); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		t.Logf("unmarshalled: %v", i)
+		// t.Logf("method: %s, host: %s, path: %s", r.Method, r.Host, r.URL.Path)
+		// t.Logf("headers: %#v", r.Header)
+		if err := verifyV4(r, bytes.NewReader(b.Bytes())); err != nil {
+			t.Logf("verifyV4 failed: %v", err)
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
 	})
 	testserver := httptest.NewServer(&mux)
 	defer testserver.Close()
