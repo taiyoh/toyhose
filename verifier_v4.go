@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	v4 "github.com/aws/aws-sdk-go/aws/signer/v4"
 )
 
 var (
-	errBuildingSignFailed = errors.New("failed to build sign")
-	errInvalidSignature   = errors.New("invalid signature")
+	errInvalidSignature = errors.New("invalid signature")
 )
 
 func verifyV4(req *http.Request, body io.ReadSeeker) error {
@@ -21,10 +21,10 @@ func verifyV4(req *http.Request, body io.ReadSeeker) error {
 	copiedReq := req.Clone(req.Context())
 	copiedReq.Header.Del("Accept-Encoding") // anyone else?
 	if _, err := v4.NewSigner(c.Credentials).Sign(copiedReq, body, "firehose", *c.Region, ts); err != nil {
-		return errBuildingSignFailed
+		return awserr.New("IncompleteSignature", "failed to build sign", err)
 	}
 	if a := copiedReq.Header.Get("Authorization"); a != refAuth {
-		return errInvalidSignature
+		return awserr.New("AccessDeniedException", "signature mismatched", errInvalidSignature)
 	}
 	return nil
 }

@@ -22,8 +22,8 @@ func TestCreateDeliveryRequest(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		// t.Logf("method: %s, host: %s, path: %s", r.Method, r.Host, r.URL.Path)
-		// t.Logf("headers: %#v", r.Header)
+		t.Logf("method: %s, host: %s, path: %s", r.Method, r.Host, r.URL.Path)
+		t.Logf("headers: %#v", r.Header)
 		if err := verifyV4(r, bytes.NewReader(b.Bytes())); err != nil {
 			t.Logf("verifyV4 failed: %v", err)
 			w.WriteHeader(http.StatusForbidden)
