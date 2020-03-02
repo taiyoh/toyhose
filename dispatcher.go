@@ -13,8 +13,9 @@ import (
 	"github.com/google/uuid"
 )
 
-func newDispatcher(accountID, region string) *dispatcher {
-	return &dispatcher{
+// NewDispatcher returns Dispatcher object.
+func NewDispatcher(accountID, region string) *Dispatcher {
+	return &Dispatcher{
 		accountID: accountID,
 		region:    region,
 		pool: &deliveryStreamPool{
@@ -23,13 +24,15 @@ func newDispatcher(accountID, region string) *dispatcher {
 	}
 }
 
-type dispatcher struct {
+// Dispatcher represents firehose API handler.
+type Dispatcher struct {
 	accountID string
 	region    string
 	pool      *deliveryStreamPool
 }
 
-func (d *dispatcher) Dispatch(w http.ResponseWriter, r *http.Request) {
+// Dispatch handlers HTTP request as http.HandlerFunc interface.
+func (d *Dispatcher) Dispatch(w http.ResponseWriter, r *http.Request) {
 	reqID := uuid.New().String()
 	w.Header().Add("x-amzn-RequestId", reqID)
 	w.Header().Add("Content-Type", r.Header.Get("Content-Type"))
