@@ -13,6 +13,16 @@ import (
 	"github.com/google/uuid"
 )
 
+func newDispatcher(accountID, region string) *dispatcher {
+	return &dispatcher{
+		accountID: accountID,
+		region:    region,
+		pool: &deliveryStreamPool{
+			pool: map[string]*deliveryStream{},
+		},
+	}
+}
+
 type dispatcher struct {
 	accountID string
 	region    string

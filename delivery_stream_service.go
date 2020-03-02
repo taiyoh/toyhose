@@ -102,8 +102,8 @@ func (s *DeliveryStreamService) Put(ctx context.Context, input []byte) (*firehos
 func putData(ds *deliveryStream, records []*firehose.Record) []string {
 	recordIDs := make([]string, 0, len(records))
 	for _, record := range records {
-		dst := make([]byte, 0, 1024)
-		if _, err := base64.StdEncoding.Decode(dst, record.Data); err != nil {
+		dst, err := base64.StdEncoding.DecodeString(string(record.Data))
+		if err != nil {
 			dst = record.Data
 		}
 		recID := uuid.New().String()

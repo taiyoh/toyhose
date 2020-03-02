@@ -112,19 +112,27 @@ func (c *s3Destination) Run(ctx context.Context) {
 		prefix:             *c.conf.Prefix,
 		shouldGZipCompress: c.conf.CompressionFormat != nil && *c.conf.CompressionFormat == "GZIP",
 	}
+	closeFn := func() {
+		newCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		storeToS3(newCtx, resource, time.Now(), c.captured)
+	}
 	for {
 		select {
 		case <-ctx.Done():
-			newCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			storeToS3(newCtx, resource, time.Now(), c.captured)
+			closeFn()
 			return
-		case r := <-c.source:
+		case r, ok := <-c.source:
+			if !ok {
+				closeFn()
+				return
+			}
 			c.captured = append(c.captured, r)
 			c.capturedSize += len(r.data)
 			if c.capturedSize >= size {
 				storeToS3(ctx, resource, time.Now(), c.captured)
 				c.captured = make([]*deliveryRecord, 0, 2048)
+				c.capturedSize = 0
 				// reset timer
 				tick = time.Tick(dur)
 			}
