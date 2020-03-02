@@ -2,6 +2,12 @@
 
 AWS Firehose emulation
 
+|icon|detail|
+|---|---|
+|🙆‍♀️|implemented!|
+|👷|under construction (including roadmap)|
+|🙊|not implemented (not in roadmap)|
+
 - 🙆‍♀️ [CreateDeliveryStream](https://docs.aws.amazon.com/ja_jp/firehose/latest/APIReference/API_CreateDeliveryStream.html)
   - 🙊 [ElasticsearchDestinationConfiguration](https://docs.aws.amazon.com/ja_jp/firehose/latest/APIReference/API_CreateDeliveryStream.html#Firehose-CreateDeliveryStream-request-ElasticsearchDestinationConfiguration)
   - 👷 [ExtendedS3DestinationConfiguration](https://docs.aws.amazon.com/ja_jp/firehose/latest/APIReference/API_CreateDeliveryStream.html#Firehose-CreateDeliveryStream-request-ExtendedS3DestinationConfiguration)
