@@ -19,7 +19,7 @@ const defaultRegion = "us-east-1"
 func init() {
 	os.Setenv("AWS_ACCESS_KEY_ID", "XXXXXXXX")
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "YYYYYYYY")
-	os.Setenv("AWS_DEFAULT_REGION", defaultRegion)
+	os.Setenv("AWS_REGION", defaultRegion)
 	os.Setenv("S3_ENDPOINT_URL", "http://localhost:9000")
 }
 

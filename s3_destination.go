@@ -37,7 +37,7 @@ func awsConfig() *aws.Config {
 		return awsConf
 	}
 	awsConf = aws.NewConfig().
-		WithRegion(os.Getenv("AWS_DEFAULT_REGION")).
+		WithRegion(os.Getenv("AWS_REGION")).
 		WithCredentials(credentials.NewEnvCredentials())
 	return awsConf
 }
