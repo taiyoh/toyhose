@@ -19,12 +19,13 @@ import (
 )
 
 type s3Destination struct {
-	deliveryName string
-	source       <-chan *deliveryRecord
-	conf         *firehose.S3DestinationConfiguration
-	closer       context.CancelFunc
-	captured     []*deliveryRecord
-	capturedSize int
+	deliveryName   string
+	source         <-chan *deliveryRecord
+	conf           *firehose.S3DestinationConfiguration
+	closer         context.CancelFunc
+	captured       []*deliveryRecord
+	bufferingHints S3BufferingHints
+	capturedSize   int
 }
 
 var (
@@ -101,11 +102,26 @@ func storeToS3(ctx context.Context, resource storeToS3Resource, ts time.Time, re
 	}
 }
 
-func (c *s3Destination) Run(ctx context.Context) {
+func (c *s3Destination) setup() (int, time.Duration) {
 	size := int(*c.conf.BufferingHints.SizeInMBs * 1024 * 1024)
+	if c.bufferingHints.SizeInMBs != nil {
+		size = *c.bufferingHints.SizeInMBs * 1024 * 1024
+	}
+	dur := int(*c.conf.BufferingHints.IntervalInSeconds)
+	if c.bufferingHints.IntervalInSeconds != nil {
+		dur = *c.bufferingHints.IntervalInSeconds
+	}
+	return size, time.Duration(dur) * time.Second
+}
+
+func (c *s3Destination) reset(dur time.Duration) <-chan time.Time {
 	c.captured = make([]*deliveryRecord, 0, 2048)
-	dur := time.Duration(*c.conf.BufferingHints.IntervalInSeconds) * time.Second
-	tick := time.Tick(dur)
+	c.capturedSize = 0
+	return time.Tick(dur)
+}
+
+func (c *s3Destination) Run(ctx context.Context) {
+	size, dur := c.setup()
 	resource := storeToS3Resource{
 		deliveryName:       c.deliveryName,
 		bucketName:         strings.ReplaceAll(*c.conf.BucketARN, "arn:aws:s3:::", ""),
@@ -117,6 +133,7 @@ func (c *s3Destination) Run(ctx context.Context) {
 		defer cancel()
 		storeToS3(newCtx, resource, time.Now(), c.captured)
 	}
+	tick := c.reset(dur)
 	for {
 		select {
 		case <-ctx.Done():
@@ -131,14 +148,11 @@ func (c *s3Destination) Run(ctx context.Context) {
 			c.capturedSize += len(r.data)
 			if c.capturedSize >= size {
 				storeToS3(ctx, resource, time.Now(), c.captured)
-				c.captured = make([]*deliveryRecord, 0, 2048)
-				c.capturedSize = 0
-				// reset timer
-				tick = time.Tick(dur)
+				tick = c.reset(dur)
 			}
 		case <-tick:
 			storeToS3(ctx, resource, time.Now(), c.captured)
-			c.captured = make([]*deliveryRecord, 0, 2048)
+			tick = c.reset(dur)
 		}
 	}
 }

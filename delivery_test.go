@@ -17,7 +17,10 @@ import (
 )
 
 func TestOperateDeliveryFromAPI(t *testing.T) {
-	d := NewDispatcher(os.Getenv("AWS_ACCESS_KEY_ID"), os.Getenv("AWS_REGION"))
+	d := NewDispatcher(&DispatcherConfig{
+		AccountID: os.Getenv("AWS_ACCESS_KEY_ID"),
+		Region:    os.Getenv("AWS_REGION"),
+	})
 	mux := http.ServeMux{}
 	mux.HandleFunc("/", d.Dispatch)
 	testserver := httptest.NewServer(&mux)

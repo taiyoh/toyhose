@@ -13,11 +13,25 @@ import (
 	"github.com/google/uuid"
 )
 
+// DispatcherConfig represents configuration data struct for Dispatcher.
+type DispatcherConfig struct {
+	AccountID        string `envconfig:"AWS_ACCESS_KEY_ID" required:"true"`
+	Region           string `envconfig:"AWS_REGION" required:"true"`
+	S3BufferingHints S3BufferingHints
+}
+
+// S3BufferingHints represents injection to S3 destination BufferingHints forcely.
+type S3BufferingHints struct {
+	SizeInMBs         *int `envconfig:"OVERWRITE_S3_BUFFERING_HINTS_SIZE_IN_MBS"`
+	IntervalInSeconds *int `envconfig:"OVERWRITE_S3_BUFFERING_HINTS_INTERVAL_IN_SECONDS"`
+}
+
 // NewDispatcher returns Dispatcher object.
-func NewDispatcher(accountID, region string) *Dispatcher {
+func NewDispatcher(conf *DispatcherConfig) *Dispatcher {
 	return &Dispatcher{
-		accountID: accountID,
-		region:    region,
+		accountID:        conf.AccountID,
+		region:           conf.Region,
+		s3BufferingHints: conf.S3BufferingHints,
 		pool: &deliveryStreamPool{
 			pool: map[string]*deliveryStream{},
 		},
@@ -26,9 +40,10 @@ func NewDispatcher(accountID, region string) *Dispatcher {
 
 // Dispatcher represents firehose API handler.
 type Dispatcher struct {
-	accountID string
-	region    string
-	pool      *deliveryStreamPool
+	accountID        string
+	region           string
+	s3BufferingHints S3BufferingHints
+	pool             *deliveryStreamPool
 }
 
 // Dispatch handlers HTTP request as http.HandlerFunc interface.
@@ -48,9 +63,10 @@ func (d *Dispatcher) Dispatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	svc := &DeliveryStreamService{
-		region:    d.region,
-		accountID: d.accountID,
-		pool:      d.pool,
+		region:           d.region,
+		accountID:        d.accountID,
+		s3BufferingHints: d.s3BufferingHints,
+		pool:             d.pool,
 	}
 	switch op {
 	case "CreateDeliveryStream":
