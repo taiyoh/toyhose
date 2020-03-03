@@ -17,9 +17,15 @@ import (
 )
 
 func TestOperateDeliveryFromAPI(t *testing.T) {
+	intervalSeconds := int(1)
+	sizeInMBs := int(5)
 	d := NewDispatcher(&DispatcherConfig{
 		AccountID: os.Getenv("AWS_ACCESS_KEY_ID"),
 		Region:    os.Getenv("AWS_REGION"),
+		S3BufferingHints: S3BufferingHints{
+			IntervalInSeconds: &intervalSeconds,
+			SizeInMBs:         &sizeInMBs,
+		},
 	})
 	mux := http.ServeMux{}
 	mux.HandleFunc("/", d.Dispatch)
@@ -95,13 +101,7 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 		}
 	})
 
-	t.Run("delete delivery_stream", func(t *testing.T) {
-		_, err := fh.DeleteDeliveryStream(&firehose.DeleteDeliveryStreamInput{
-			DeliveryStreamName: &streamName,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
+	t.Run("receive objects", func(t *testing.T) {
 		var contents []*s3.Object
 		for i := 0; i < 100; i++ {
 			out, err := s3cli.ListObjects(&s3.ListObjectsInput{
@@ -137,6 +137,14 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 		}
 		if byteSize != 33 {
 			t.Errorf("wrong content received: %d", byteSize)
+		}
+	})
+
+	t.Run("delete delivery_stream", func(t *testing.T) {
+		if _, err := fh.DeleteDeliveryStream(&firehose.DeleteDeliveryStreamInput{
+			DeliveryStreamName: &streamName,
+		}); err != nil {
+			t.Fatal(err)
 		}
 	})
 }
