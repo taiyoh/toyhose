@@ -5,7 +5,7 @@ AWS Firehose emulation
 |icon|detail|
 |---|---|
 |🙆‍♀️|implemented!|
-|👷|under construction (including roadmap)|
+|👷|under construction (in roadmap)|
 |🙊|not implemented (not in roadmap)|
 
 - 🙆‍♀️ [CreateDeliveryStream](https://docs.aws.amazon.com/ja_jp/firehose/latest/APIReference/API_CreateDeliveryStream.html)
