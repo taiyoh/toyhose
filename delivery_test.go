@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
@@ -19,9 +18,9 @@ import (
 func TestOperateDeliveryFromAPI(t *testing.T) {
 	intervalSeconds := int(1)
 	sizeInMBs := int(5)
+	awsConf := awsConfig()
 	d := NewDispatcher(&DispatcherConfig{
-		AccountID: os.Getenv("AWS_ACCESS_KEY_ID"),
-		Region:    os.Getenv("AWS_REGION"),
+		AWSConf: awsConf,
 		S3InjectedConf: S3InjectedConf{
 			IntervalInSeconds: &intervalSeconds,
 			SizeInMBs:         &sizeInMBs,

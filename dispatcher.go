@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/firehose"
 	"github.com/google/uuid"
@@ -15,10 +16,8 @@ import (
 
 // DispatcherConfig represents configuration data struct for Dispatcher.
 type DispatcherConfig struct {
-	AccountID      string `envconfig:"AWS_ACCESS_KEY_ID"     required:"true"`
-	SecretKey      string `envconfig:"AWS_SECRET_ACCESS_KEY" required:"true"`
-	Region         string `envconfig:"AWS_REGION"            required:"true"`
 	S3InjectedConf S3InjectedConf
+	AWSConf        *aws.Config
 }
 
 // S3InjectedConf represents injection to S3 destination BufferingHints forcely.
@@ -30,9 +29,10 @@ type S3InjectedConf struct {
 
 // NewDispatcher returns Dispatcher object.
 func NewDispatcher(conf *DispatcherConfig) *Dispatcher {
+	cred, _ := conf.AWSConf.Credentials.Get()
 	return &Dispatcher{
-		accountID:      conf.AccountID,
-		region:         conf.Region,
+		accountID:      cred.AccessKeyID,
+		region:         *conf.AWSConf.Region,
 		s3InjectedConf: conf.S3InjectedConf,
 		pool: &deliveryStreamPool{
 			pool: map[string]*deliveryStream{},
