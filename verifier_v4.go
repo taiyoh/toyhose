@@ -20,6 +20,7 @@ func verifyV4(req *http.Request, body io.ReadSeeker) error {
 	c := awsConfig()
 	copiedReq := req.Clone(req.Context())
 	copiedReq.Header.Del("Accept-Encoding") // anyone else?
+	copiedReq.Header.Del("Authorization")
 	if _, err := v4.NewSigner(c.Credentials).Sign(copiedReq, body, "firehose", *c.Region, ts); err != nil {
 		return awserr.New("IncompleteSignature", "failed to build sign", err)
 	}
