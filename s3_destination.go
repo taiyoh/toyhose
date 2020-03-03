@@ -55,14 +55,14 @@ func s3Client() *s3.S3 {
 	return s3cli
 }
 
-type storeToS3Resource struct {
+type storeToS3Config struct {
 	deliveryName       string
 	bucketName         string
 	prefix             string
 	shouldGZipCompress bool
 }
 
-func storeToS3(ctx context.Context, resource storeToS3Resource, ts time.Time, records []*deliveryRecord) {
+func storeToS3(ctx context.Context, conf storeToS3Config, ts time.Time, records []*deliveryRecord) {
 	data := make([]byte, 0, 1024*1024)
 	for _, rec := range records {
 		data = append(data, rec.data...)
@@ -71,7 +71,7 @@ func storeToS3(ctx context.Context, resource storeToS3Resource, ts time.Time, re
 		return
 	}
 	var seekable []byte
-	if resource.shouldGZipCompress {
+	if conf.shouldGZipCompress {
 		b := bytes.NewBuffer([]byte{})
 		w := gzip.NewWriter(b)
 		w.Write(data)
@@ -80,10 +80,10 @@ func storeToS3(ctx context.Context, resource storeToS3Resource, ts time.Time, re
 	} else {
 		seekable = data
 	}
-	pref := strings.TrimSuffix(keyPrefix(resource.prefix, ts), "/")
-	key := fmt.Sprintf("%s/%s-1-%s-%s", pref, resource.deliveryName, ts.Format("2006-01-02-15-04-05"), uuid.New())
+	pref := strings.TrimSuffix(keyPrefix(conf.prefix, ts), "/")
+	key := fmt.Sprintf("%s/%s-1-%s-%s", pref, conf.deliveryName, ts.Format("2006-01-02-15-04-05"), uuid.New())
 	input := &s3.PutObjectInput{
-		Bucket: &resource.bucketName,
+		Bucket: &conf.bucketName,
 		Body:   bytes.NewReader(seekable),
 		Key:    &key,
 	}
@@ -122,7 +122,7 @@ func (c *s3Destination) reset(dur time.Duration) <-chan time.Time {
 
 func (c *s3Destination) Run(ctx context.Context) {
 	size, dur := c.setup()
-	resource := storeToS3Resource{
+	resource := storeToS3Config{
 		deliveryName:       c.deliveryName,
 		bucketName:         strings.ReplaceAll(*c.conf.BucketARN, "arn:aws:s3:::", ""),
 		prefix:             *c.conf.Prefix,
