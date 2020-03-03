@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
@@ -19,16 +18,14 @@ import (
 func TestOperateDeliveryFromAPI(t *testing.T) {
 	intervalSeconds := int(1)
 	sizeInMBs := int(5)
-	awsConf := awsConfig()
-	endpoint := os.Getenv("S3_ENDPOINT_URL")
-	s3cli := s3Client(awsConf, endpoint)
+	s3cli := s3Client(awsConf, s3EndpointURL)
 
 	d := NewDispatcher(&DispatcherConfig{
 		AWSConf: awsConf,
 		S3InjectedConf: S3InjectedConf{
 			IntervalInSeconds: &intervalSeconds,
 			SizeInMBs:         &sizeInMBs,
-			EndPoint:          &endpoint,
+			EndPoint:          &s3EndpointURL,
 		},
 	})
 	mux := http.ServeMux{}
@@ -45,7 +42,7 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 
 	streamName := "foobar"
 	prefix := "aaa-prefix"
-	fh := firehose.New(session.New(awsConfig().WithEndpoint(testserver.URL)))
+	fh := firehose.New(session.New(awsConf.WithEndpoint(testserver.URL)))
 	t.Run("create delivery_stream", func(t *testing.T) {
 		out, err := fh.CreateDeliveryStream(&firehose.CreateDeliveryStreamInput{
 			DeliveryStreamName: &streamName,

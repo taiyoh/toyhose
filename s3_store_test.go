@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"regexp"
 	"testing"
 	"time"
@@ -16,13 +15,13 @@ import (
 	"github.com/google/uuid"
 )
 
-const defaultRegion = "us-east-1"
+var awsConf *aws.Config
+var s3EndpointURL = "http://localhost:9000"
 
 func init() {
-	os.Setenv("AWS_ACCESS_KEY_ID", "XXXXXXXX")
-	os.Setenv("AWS_SECRET_ACCESS_KEY", "YYYYYYYY")
-	os.Setenv("AWS_REGION", defaultRegion)
-	os.Setenv("S3_ENDPOINT_URL", "http://localhost:9000")
+	awsConf = aws.NewConfig().
+		WithRegion("us-east-1").
+		WithCredentials(credentials.NewStaticCredentials("XXXXXXXX", "YYYYYYYY", ""))
 }
 
 func setupS3(s3cli *s3.S3, bucket string) (func(), error) {
@@ -37,14 +36,8 @@ func setupS3(s3cli *s3.S3, bucket string) (func(), error) {
 	return fn, nil
 }
 
-func awsConfig() *aws.Config {
-	return aws.NewConfig().
-		WithRegion(os.Getenv("AWS_REGION")).
-		WithCredentials(credentials.NewEnvCredentials())
-}
-
 func TestStoreToS3ForNoSuppliedData(t *testing.T) {
-	s3cli := s3Client(awsConfig(), os.Getenv("S3_ENDPOINT_URL"))
+	s3cli := s3Client(awsConf, s3EndpointURL)
 	bucketName := "store-s3-test-" + uuid.New().String()
 	closer, err := setupS3(s3cli, bucketName)
 	if err != nil {
@@ -74,7 +67,7 @@ func TestStoreToS3ForNoSuppliedData(t *testing.T) {
 }
 
 func TestStoreToS3ForRawData(t *testing.T) {
-	s3cli := s3Client(awsConfig(), os.Getenv("S3_ENDPOINT_URL"))
+	s3cli := s3Client(awsConf, s3EndpointURL)
 	bucketName := "store-s3-test-" + uuid.New().String()
 	closer, err := setupS3(s3cli, bucketName)
 	if err != nil {
@@ -125,7 +118,7 @@ func TestStoreToS3ForRawData(t *testing.T) {
 }
 
 func TestStoreToS3ForCompressedData(t *testing.T) {
-	s3cli := s3Client(awsConfig(), os.Getenv("S3_ENDPOINT_URL"))
+	s3cli := s3Client(awsConf, s3EndpointURL)
 	bucketName := "store-s3-test-" + uuid.New().String()
 	closer, err := setupS3(s3cli, bucketName)
 	if err != nil {

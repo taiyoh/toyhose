@@ -3,7 +3,6 @@ package toyhose
 import (
 	"context"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -15,9 +14,7 @@ import (
 )
 
 func TestS3DestinationForExceededDataSize(t *testing.T) {
-	awsConf := awsConfig()
-	endpoint := os.Getenv("S3_ENDPOINT_URL")
-	s3cli := s3Client(awsConf, endpoint)
+	s3cli := s3Client(awsConf, s3EndpointURL)
 	bucketName := "store-s3-test-" + uuid.New().String()
 	closer, err := setupS3(s3cli, bucketName)
 	if err != nil {
@@ -29,7 +26,7 @@ func TestS3DestinationForExceededDataSize(t *testing.T) {
 	dst := &s3Destination{
 		awsConf: awsConf,
 		injectedConf: S3InjectedConf{
-			EndPoint: &endpoint,
+			EndPoint: &s3EndpointURL,
 		},
 		deliveryName: "foobar",
 		source:       ch,
@@ -92,9 +89,7 @@ func TestS3DestinationForExceededDataSize(t *testing.T) {
 }
 
 func TestS3DestinationForExceededInterval(t *testing.T) {
-	awsConf := awsConfig()
-	endpoint := os.Getenv("S3_ENDPOINT_URL")
-	s3cli := s3Client(awsConf, endpoint)
+	s3cli := s3Client(awsConf, s3EndpointURL)
 	bucketName := "store-s3-test-" + uuid.New().String()
 	closer, err := setupS3(s3cli, bucketName)
 	if err != nil {
@@ -106,7 +101,7 @@ func TestS3DestinationForExceededInterval(t *testing.T) {
 	dst := &s3Destination{
 		awsConf: awsConf,
 		injectedConf: S3InjectedConf{
-			EndPoint: &endpoint,
+			EndPoint: &s3EndpointURL,
 		},
 		deliveryName: "foobar",
 		source:       ch,
