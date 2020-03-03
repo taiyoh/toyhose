@@ -15,24 +15,25 @@ import (
 
 // DispatcherConfig represents configuration data struct for Dispatcher.
 type DispatcherConfig struct {
-	AccountID        string `envconfig:"AWS_ACCESS_KEY_ID"     required:"true"`
-	SecretKey        string `envconfig:"AWS_SECRET_ACCESS_KEY" required:"true"`
-	Region           string `envconfig:"AWS_REGION"            required:"true"`
-	S3BufferingHints S3BufferingHints
+	AccountID      string `envconfig:"AWS_ACCESS_KEY_ID"     required:"true"`
+	SecretKey      string `envconfig:"AWS_SECRET_ACCESS_KEY" required:"true"`
+	Region         string `envconfig:"AWS_REGION"            required:"true"`
+	S3InjectedConf S3InjectedConf
 }
 
-// S3BufferingHints represents injection to S3 destination BufferingHints forcely.
-type S3BufferingHints struct {
-	SizeInMBs         *int `envconfig:"S3_BUFFERING_HINTS_SIZE_IN_MBS"`
-	IntervalInSeconds *int `envconfig:"S3_BUFFERING_HINTS_INTERVAL_IN_SECONDS"`
+// S3InjectedConf represents injection to S3 destination BufferingHints forcely.
+type S3InjectedConf struct {
+	SizeInMBs         *int    `envconfig:"S3_BUFFERING_HINTS_SIZE_IN_MBS"`
+	IntervalInSeconds *int    `envconfig:"S3_BUFFERING_HINTS_INTERVAL_IN_SECONDS"`
+	EndPoint          *string `envconfig:"S3_ENDPOINT_URL"`
 }
 
 // NewDispatcher returns Dispatcher object.
 func NewDispatcher(conf *DispatcherConfig) *Dispatcher {
 	return &Dispatcher{
-		accountID:        conf.AccountID,
-		region:           conf.Region,
-		s3BufferingHints: conf.S3BufferingHints,
+		accountID:      conf.AccountID,
+		region:         conf.Region,
+		s3InjectedConf: conf.S3InjectedConf,
 		pool: &deliveryStreamPool{
 			pool: map[string]*deliveryStream{},
 		},
@@ -41,10 +42,10 @@ func NewDispatcher(conf *DispatcherConfig) *Dispatcher {
 
 // Dispatcher represents firehose API handler.
 type Dispatcher struct {
-	accountID        string
-	region           string
-	s3BufferingHints S3BufferingHints
-	pool             *deliveryStreamPool
+	accountID      string
+	region         string
+	s3InjectedConf S3InjectedConf
+	pool           *deliveryStreamPool
 }
 
 // Dispatch handlers HTTP request as http.HandlerFunc interface.
@@ -64,10 +65,10 @@ func (d *Dispatcher) Dispatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	svc := &DeliveryStreamService{
-		region:           d.region,
-		accountID:        d.accountID,
-		s3BufferingHints: d.s3BufferingHints,
-		pool:             d.pool,
+		region:         d.region,
+		accountID:      d.accountID,
+		s3InjectedConf: d.s3InjectedConf,
+		pool:           d.pool,
 	}
 	switch op {
 	case "CreateDeliveryStream":

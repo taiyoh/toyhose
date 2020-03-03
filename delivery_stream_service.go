@@ -15,10 +15,10 @@ import (
 
 // DeliveryStreamService represents interface for operating DeliveryStream resources.
 type DeliveryStreamService struct {
-	region           string
-	accountID        string
-	s3BufferingHints S3BufferingHints
-	pool             *deliveryStreamPool
+	region         string
+	accountID      string
+	s3InjectedConf S3InjectedConf
+	pool           *deliveryStreamPool
 }
 
 func (s *DeliveryStreamService) arnName(streamName string) string {
@@ -46,11 +46,11 @@ func (s *DeliveryStreamService) Create(ctx context.Context, input []byte) (*fire
 	if i.S3DestinationConfiguration != nil {
 		s3DestCtx, s3DestCancel := context.WithCancel(dsCtx)
 		s3dest := &s3Destination{
-			deliveryName:   *i.DeliveryStreamName,
-			source:         source,
-			conf:           i.S3DestinationConfiguration,
-			closer:         s3DestCancel,
-			bufferingHints: s.s3BufferingHints,
+			deliveryName: *i.DeliveryStreamName,
+			source:       source,
+			conf:         i.S3DestinationConfiguration,
+			closer:       s3DestCancel,
+			injectedConf: s.s3InjectedConf,
 		}
 		go s3dest.Run(s3DestCtx)
 		ds.s3Dest = s3dest

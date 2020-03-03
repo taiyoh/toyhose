@@ -22,7 +22,7 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 	d := NewDispatcher(&DispatcherConfig{
 		AccountID: os.Getenv("AWS_ACCESS_KEY_ID"),
 		Region:    os.Getenv("AWS_REGION"),
-		S3BufferingHints: S3BufferingHints{
+		S3InjectedConf: S3InjectedConf{
 			IntervalInSeconds: &intervalSeconds,
 			SizeInMBs:         &sizeInMBs,
 		},

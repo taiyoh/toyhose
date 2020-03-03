@@ -19,13 +19,13 @@ import (
 )
 
 type s3Destination struct {
-	deliveryName   string
-	source         <-chan *deliveryRecord
-	conf           *firehose.S3DestinationConfiguration
-	closer         context.CancelFunc
-	captured       []*deliveryRecord
-	bufferingHints S3BufferingHints
-	capturedSize   int
+	deliveryName string
+	source       <-chan *deliveryRecord
+	conf         *firehose.S3DestinationConfiguration
+	closer       context.CancelFunc
+	captured     []*deliveryRecord
+	injectedConf S3InjectedConf
+	capturedSize int
 }
 
 var (
@@ -104,12 +104,12 @@ func storeToS3(ctx context.Context, conf storeToS3Config, ts time.Time, records 
 
 func (c *s3Destination) setup() (int, time.Duration) {
 	size := int(*c.conf.BufferingHints.SizeInMBs * 1024 * 1024)
-	if c.bufferingHints.SizeInMBs != nil {
-		size = *c.bufferingHints.SizeInMBs * 1024 * 1024
+	if c.injectedConf.SizeInMBs != nil {
+		size = *c.injectedConf.SizeInMBs * 1024 * 1024
 	}
 	dur := int(*c.conf.BufferingHints.IntervalInSeconds)
-	if c.bufferingHints.IntervalInSeconds != nil {
-		dur = *c.bufferingHints.IntervalInSeconds
+	if c.injectedConf.IntervalInSeconds != nil {
+		dur = *c.injectedConf.IntervalInSeconds
 	}
 	return size, time.Duration(dur) * time.Second
 }
