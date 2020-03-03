@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	v4 "github.com/aws/aws-sdk-go/aws/signer/v4"
 )
@@ -14,10 +15,9 @@ var (
 	errInvalidSignature = errors.New("invalid signature")
 )
 
-func verifyV4(req *http.Request, body io.ReadSeeker) error {
+func verifyV4(c *aws.Config, req *http.Request, body io.ReadSeeker) error {
 	refAuth := req.Header.Get("Authorization")
 	ts, _ := time.Parse("20060102T150405Z", req.Header.Get("X-Amz-Date"))
-	c := awsConfig()
 	copiedReq := req.Clone(req.Context())
 	copiedReq.Header.Del("Accept-Encoding") // anyone else?
 	copiedReq.Header.Del("Authorization")

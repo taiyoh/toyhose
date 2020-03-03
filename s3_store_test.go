@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/google/uuid"
 )
@@ -35,8 +37,14 @@ func setupS3(s3cli *s3.S3, bucket string) (func(), error) {
 	return fn, nil
 }
 
+func awsConfig() *aws.Config {
+	return aws.NewConfig().
+		WithRegion(os.Getenv("AWS_REGION")).
+		WithCredentials(credentials.NewEnvCredentials())
+}
+
 func TestStoreToS3ForNoSuppliedData(t *testing.T) {
-	s3cli := s3Client()
+	s3cli := s3Client(awsConfig(), os.Getenv("S3_ENDPOINT_URL"))
 	bucketName := "store-s3-test-" + uuid.New().String()
 	closer, err := setupS3(s3cli, bucketName)
 	if err != nil {
@@ -49,6 +57,7 @@ func TestStoreToS3ForNoSuppliedData(t *testing.T) {
 		bucketName:         bucketName,
 		prefix:             "",
 		shouldGZipCompress: false,
+		s3cli:              s3cli,
 	}
 	ts := time.Now()
 
@@ -65,7 +74,7 @@ func TestStoreToS3ForNoSuppliedData(t *testing.T) {
 }
 
 func TestStoreToS3ForRawData(t *testing.T) {
-	s3cli := s3Client()
+	s3cli := s3Client(awsConfig(), os.Getenv("S3_ENDPOINT_URL"))
 	bucketName := "store-s3-test-" + uuid.New().String()
 	closer, err := setupS3(s3cli, bucketName)
 	if err != nil {
@@ -78,6 +87,7 @@ func TestStoreToS3ForRawData(t *testing.T) {
 		bucketName:         bucketName,
 		prefix:             "",
 		shouldGZipCompress: false,
+		s3cli:              s3cli,
 	}
 	ts := time.Now()
 
@@ -115,7 +125,7 @@ func TestStoreToS3ForRawData(t *testing.T) {
 }
 
 func TestStoreToS3ForCompressedData(t *testing.T) {
-	s3cli := s3Client()
+	s3cli := s3Client(awsConfig(), os.Getenv("S3_ENDPOINT_URL"))
 	bucketName := "store-s3-test-" + uuid.New().String()
 	closer, err := setupS3(s3cli, bucketName)
 	if err != nil {
@@ -128,6 +138,7 @@ func TestStoreToS3ForCompressedData(t *testing.T) {
 		bucketName:         bucketName,
 		prefix:             "",
 		shouldGZipCompress: true,
+		s3cli:              s3cli,
 	}
 	ts := time.Now()
 

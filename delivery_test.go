@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -19,11 +20,15 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 	intervalSeconds := int(1)
 	sizeInMBs := int(5)
 	awsConf := awsConfig()
+	endpoint := os.Getenv("S3_ENDPOINT_URL")
+	s3cli := s3Client(awsConf, endpoint)
+
 	d := NewDispatcher(&DispatcherConfig{
 		AWSConf: awsConf,
 		S3InjectedConf: S3InjectedConf{
 			IntervalInSeconds: &intervalSeconds,
 			SizeInMBs:         &sizeInMBs,
+			EndPoint:          &endpoint,
 		},
 	})
 	mux := http.ServeMux{}
@@ -31,7 +36,6 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 	testserver := httptest.NewServer(&mux)
 	defer testserver.Close()
 
-	s3cli := s3Client()
 	bucketName := "delivery-api-test-" + uuid.New().String()
 	closer, err := setupS3(s3cli, bucketName)
 	if err != nil {

@@ -5,13 +5,11 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/firehose"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -24,35 +22,13 @@ type s3Destination struct {
 	conf         *firehose.S3DestinationConfiguration
 	closer       context.CancelFunc
 	captured     []*deliveryRecord
+	awsConf      *aws.Config
 	injectedConf S3InjectedConf
 	capturedSize int
 }
 
-var (
-	s3cli   *s3.S3
-	awsConf *aws.Config
-)
-
-func awsConfig() *aws.Config {
-	if awsConf != nil {
-		return awsConf
-	}
-	awsConf = aws.NewConfig().
-		WithRegion(os.Getenv("AWS_REGION")).
-		WithCredentials(credentials.NewEnvCredentials())
-	return awsConf
-}
-
-func s3Client() *s3.S3 {
-	if s3cli != nil {
-		return s3cli
-	}
-	endpoint := os.Getenv("S3_ENDPOINT_URL")
-	if endpoint == "" {
-		panic("require S3_ENDPOINT_URL")
-	}
-	s3cli = s3.New(session.New(awsConfig().WithEndpoint(endpoint).WithS3ForcePathStyle(true).WithDisableSSL(true)))
-	return s3cli
+func s3Client(conf *aws.Config, endpoint string) *s3.S3 {
+	return s3.New(session.New(conf.WithEndpoint(endpoint).WithS3ForcePathStyle(true).WithDisableSSL(true)))
 }
 
 type storeToS3Config struct {
@@ -60,6 +36,7 @@ type storeToS3Config struct {
 	bucketName         string
 	prefix             string
 	shouldGZipCompress bool
+	s3cli              *s3.S3
 }
 
 func storeToS3(ctx context.Context, conf storeToS3Config, ts time.Time, records []*deliveryRecord) {
@@ -87,7 +64,7 @@ func storeToS3(ctx context.Context, conf storeToS3Config, ts time.Time, records 
 		Body:   bytes.NewReader(seekable),
 		Key:    &key,
 	}
-	cli := s3Client()
+	cli := conf.s3cli
 	for i := 0; i < 30; i++ {
 		switch _, err := cli.PutObjectWithContext(ctx, input); err {
 		case nil, context.Canceled:
@@ -133,6 +110,7 @@ func (c *s3Destination) Run(ctx context.Context) {
 		bucketName:         strings.ReplaceAll(*c.conf.BucketARN, "arn:aws:s3:::", ""),
 		prefix:             *c.conf.Prefix,
 		shouldGZipCompress: c.conf.CompressionFormat != nil && *c.conf.CompressionFormat == "GZIP",
+		s3cli:              s3Client(c.awsConf, *c.injectedConf.EndPoint),
 	}
 	tick := c.reset(dur)
 	for {

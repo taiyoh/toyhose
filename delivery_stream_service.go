@@ -15,6 +15,7 @@ import (
 
 // DeliveryStreamService represents interface for operating DeliveryStream resources.
 type DeliveryStreamService struct {
+	awsConf        *aws.Config
 	region         string
 	accountID      string
 	s3InjectedConf S3InjectedConf
@@ -51,6 +52,7 @@ func (s *DeliveryStreamService) Create(ctx context.Context, input []byte) (*fire
 			conf:         i.S3DestinationConfiguration,
 			closer:       s3DestCancel,
 			injectedConf: s.s3InjectedConf,
+			awsConf:      s.awsConf,
 		}
 		go s3dest.Run(s3DestCtx)
 		ds.s3Dest = s3dest

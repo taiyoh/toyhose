@@ -31,6 +31,7 @@ type S3InjectedConf struct {
 func NewDispatcher(conf *DispatcherConfig) *Dispatcher {
 	cred, _ := conf.AWSConf.Credentials.Get()
 	return &Dispatcher{
+		conf:           conf.AWSConf,
 		accountID:      cred.AccessKeyID,
 		region:         *conf.AWSConf.Region,
 		s3InjectedConf: conf.S3InjectedConf,
@@ -42,6 +43,7 @@ func NewDispatcher(conf *DispatcherConfig) *Dispatcher {
 
 // Dispatcher represents firehose API handler.
 type Dispatcher struct {
+	conf           *aws.Config
 	accountID      string
 	region         string
 	s3InjectedConf S3InjectedConf
@@ -60,11 +62,12 @@ func (d *Dispatcher) Dispatch(w http.ResponseWriter, r *http.Request) {
 	}
 	b := bytes.NewBuffer([]byte{})
 	io.Copy(b, r.Body)
-	if err := verifyV4(r, bytes.NewReader(b.Bytes())); err != nil {
+	if err := verifyV4(d.conf, r, bytes.NewReader(b.Bytes())); err != nil {
 		outputForJSON(w, nil, err)
 		return
 	}
 	svc := &DeliveryStreamService{
+		awsConf:        d.conf,
 		region:         d.region,
 		accountID:      d.accountID,
 		s3InjectedConf: d.s3InjectedConf,
