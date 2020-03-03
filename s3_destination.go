@@ -120,38 +120,39 @@ func (c *s3Destination) reset(dur time.Duration) <-chan time.Time {
 	return time.Tick(dur)
 }
 
+func (c *s3Destination) finalize(conf storeToS3Config) {
+	newCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	storeToS3(newCtx, conf, time.Now(), c.captured)
+}
+
 func (c *s3Destination) Run(ctx context.Context) {
 	size, dur := c.setup()
-	resource := storeToS3Config{
+	conf := storeToS3Config{
 		deliveryName:       c.deliveryName,
 		bucketName:         strings.ReplaceAll(*c.conf.BucketARN, "arn:aws:s3:::", ""),
 		prefix:             *c.conf.Prefix,
 		shouldGZipCompress: c.conf.CompressionFormat != nil && *c.conf.CompressionFormat == "GZIP",
 	}
-	closeFn := func() {
-		newCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		storeToS3(newCtx, resource, time.Now(), c.captured)
-	}
 	tick := c.reset(dur)
 	for {
 		select {
 		case <-ctx.Done():
-			closeFn()
+			c.finalize(conf)
 			return
 		case r, ok := <-c.source:
 			if !ok {
-				closeFn()
+				c.finalize(conf)
 				return
 			}
 			c.captured = append(c.captured, r)
 			c.capturedSize += len(r.data)
 			if c.capturedSize >= size {
-				storeToS3(ctx, resource, time.Now(), c.captured)
+				storeToS3(ctx, conf, time.Now(), c.captured)
 				tick = c.reset(dur)
 			}
 		case <-tick:
-			storeToS3(ctx, resource, time.Now(), c.captured)
+			storeToS3(ctx, conf, time.Now(), c.captured)
 			tick = c.reset(dur)
 		}
 	}
