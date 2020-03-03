@@ -15,15 +15,16 @@ import (
 
 // DispatcherConfig represents configuration data struct for Dispatcher.
 type DispatcherConfig struct {
-	AccountID        string `envconfig:"AWS_ACCESS_KEY_ID" required:"true"`
-	Region           string `envconfig:"AWS_REGION" required:"true"`
+	AccountID        string `envconfig:"AWS_ACCESS_KEY_ID"     required:"true"`
+	SecretKey        string `envconfig:"AWS_SECRET_ACCESS_KEY" required:"true"`
+	Region           string `envconfig:"AWS_REGION"            required:"true"`
 	S3BufferingHints S3BufferingHints
 }
 
 // S3BufferingHints represents injection to S3 destination BufferingHints forcely.
 type S3BufferingHints struct {
-	SizeInMBs         *int `envconfig:"OVERWRITE_S3_BUFFERING_HINTS_SIZE_IN_MBS"`
-	IntervalInSeconds *int `envconfig:"OVERWRITE_S3_BUFFERING_HINTS_INTERVAL_IN_SECONDS"`
+	SizeInMBs         *int `envconfig:"S3_BUFFERING_HINTS_SIZE_IN_MBS"`
+	IntervalInSeconds *int `envconfig:"S3_BUFFERING_HINTS_INTERVAL_IN_SECONDS"`
 }
 
 // NewDispatcher returns Dispatcher object.
