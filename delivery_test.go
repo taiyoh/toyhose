@@ -2,6 +2,7 @@ package toyhose
 
 import (
 	"encoding/base64"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -43,6 +44,30 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 	streamName := "foobar"
 	prefix := "aaa-prefix"
 	fh := firehose.New(session.New(awsConf.WithEndpoint(testserver.URL)))
+	for _, bucket := range []string{"", "foobarbaz"} {
+		t.Run(fmt.Sprintf("bucket: [%s]", bucket), func(t *testing.T) {
+			out, err := fh.CreateDeliveryStream(&firehose.CreateDeliveryStreamInput{
+				DeliveryStreamName: &streamName,
+				DeliveryStreamType: aws.String("DirectPut"),
+				S3DestinationConfiguration: &firehose.S3DestinationConfiguration{
+					BucketARN: aws.String("arn:aws:s3:::" + bucket),
+					BufferingHints: &firehose.BufferingHints{
+						SizeInMBs:         aws.Int64(32),
+						IntervalInSeconds: aws.Int64(60),
+					},
+					Prefix:  &prefix,
+					RoleARN: aws.String("foo"),
+				},
+			})
+			if err == nil {
+				t.Error("error should exists")
+			}
+			if out.DeliveryStreamARN != nil {
+				t.Errorf("unexpected CreateDeliveryStreamOutput received: %#v", out)
+			}
+		})
+	}
+
 	t.Run("create delivery_stream", func(t *testing.T) {
 		out, err := fh.CreateDeliveryStream(&firehose.CreateDeliveryStreamInput{
 			DeliveryStreamName: &streamName,

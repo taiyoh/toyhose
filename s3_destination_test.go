@@ -41,7 +41,11 @@ func TestS3DestinationForExceededDataSize(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go dst.Run(ctx)
+	conf, err := dst.Setup(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go dst.Run(ctx, conf)
 
 	b, err := ioutil.ReadFile(filepath.Join("testdata", "dummy.json"))
 	if err != nil {
@@ -116,7 +120,11 @@ func TestS3DestinationForExceededInterval(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go dst.Run(ctx)
+	conf, err := dst.Setup(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go dst.Run(ctx, conf)
 
 	b, err := ioutil.ReadFile(filepath.Join("testdata", "dummy.json"))
 	if err != nil {

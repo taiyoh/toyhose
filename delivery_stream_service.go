@@ -54,7 +54,11 @@ func (s *DeliveryStreamService) Create(ctx context.Context, input []byte) (*fire
 			injectedConf: s.s3InjectedConf,
 			awsConf:      s.awsConf,
 		}
-		go s3dest.Run(s3DestCtx)
+		conf, err := s3dest.Setup(s3DestCtx)
+		if err != nil {
+			return nil, awserr.New(firehose.ErrCodeResourceNotFoundException, "invalid BucketName", err)
+		}
+		go s3dest.Run(s3DestCtx, conf)
 		ds.s3Dest = s3dest
 	}
 	s.pool.Add(ds)

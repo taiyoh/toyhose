@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -31,15 +32,17 @@ func s3Client(conf *aws.Config, endpoint string) *s3.S3 {
 	return s3.New(session.New(conf.WithEndpoint(endpoint).WithS3ForcePathStyle(true).WithDisableSSL(true)))
 }
 
-type storeToS3Config struct {
+type s3StoreConfig struct {
 	deliveryName       string
 	bucketName         string
 	prefix             string
 	shouldGZipCompress bool
 	s3cli              *s3.S3
+	bufferSize         int // byte
+	tickDuration       time.Duration
 }
 
-func storeToS3(ctx context.Context, conf storeToS3Config, ts time.Time, records []*deliveryRecord) {
+func storeToS3(ctx context.Context, conf s3StoreConfig, ts time.Time, records []*deliveryRecord) {
 	data := make([]byte, 0, 1024*1024)
 	for _, rec := range records {
 		data = append(data, rec.data...)
@@ -79,7 +82,7 @@ func storeToS3(ctx context.Context, conf storeToS3Config, ts time.Time, records 
 	}
 }
 
-func (c *s3Destination) setup() (int, time.Duration) {
+func (c *s3Destination) Setup(ctx context.Context) (s3StoreConfig, error) {
 	size := int(*c.conf.BufferingHints.SizeInMBs * 1024 * 1024)
 	if c.injectedConf.SizeInMBs != nil {
 		size = *c.injectedConf.SizeInMBs * 1024 * 1024
@@ -88,7 +91,26 @@ func (c *s3Destination) setup() (int, time.Duration) {
 	if c.injectedConf.IntervalInSeconds != nil {
 		dur = *c.injectedConf.IntervalInSeconds
 	}
-	return size, time.Duration(dur) * time.Second
+	s3cli := s3Client(c.awsConf, *c.injectedConf.EndPoint)
+	bucketName := strings.ReplaceAll(*c.conf.BucketARN, "arn:aws:s3:::", "")
+	if bucketName == "" {
+		return s3StoreConfig{}, errors.New("required bucket_name")
+	}
+	if _, err := s3cli.HeadBucketWithContext(ctx, &s3.HeadBucketInput{
+		Bucket: &bucketName,
+	}); err != nil {
+		return s3StoreConfig{}, err
+	}
+	conf := s3StoreConfig{
+		deliveryName:       c.deliveryName,
+		bucketName:         bucketName,
+		prefix:             *c.conf.Prefix,
+		shouldGZipCompress: c.conf.CompressionFormat != nil && *c.conf.CompressionFormat == "GZIP",
+		s3cli:              s3cli,
+		bufferSize:         size,
+		tickDuration:       time.Duration(dur) * time.Second,
+	}
+	return conf, nil
 }
 
 func (c *s3Destination) reset(dur time.Duration) <-chan time.Time {
@@ -97,22 +119,14 @@ func (c *s3Destination) reset(dur time.Duration) <-chan time.Time {
 	return time.Tick(dur)
 }
 
-func (c *s3Destination) finalize(conf storeToS3Config) {
+func (c *s3Destination) finalize(conf s3StoreConfig) {
 	newCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	storeToS3(newCtx, conf, time.Now(), c.captured)
 }
 
-func (c *s3Destination) Run(ctx context.Context) {
-	size, dur := c.setup()
-	conf := storeToS3Config{
-		deliveryName:       c.deliveryName,
-		bucketName:         strings.ReplaceAll(*c.conf.BucketARN, "arn:aws:s3:::", ""),
-		prefix:             *c.conf.Prefix,
-		shouldGZipCompress: c.conf.CompressionFormat != nil && *c.conf.CompressionFormat == "GZIP",
-		s3cli:              s3Client(c.awsConf, *c.injectedConf.EndPoint),
-	}
-	tick := c.reset(dur)
+func (c *s3Destination) Run(ctx context.Context, conf s3StoreConfig) {
+	tick := c.reset(conf.tickDuration)
 	for {
 		select {
 		case <-ctx.Done():
@@ -125,13 +139,13 @@ func (c *s3Destination) Run(ctx context.Context) {
 			}
 			c.captured = append(c.captured, r)
 			c.capturedSize += len(r.data)
-			if c.capturedSize >= size {
+			if c.capturedSize >= conf.bufferSize {
 				storeToS3(ctx, conf, time.Now(), c.captured)
-				tick = c.reset(dur)
+				tick = c.reset(conf.tickDuration)
 			}
 		case <-tick:
 			storeToS3(ctx, conf, time.Now(), c.captured)
-			tick = c.reset(dur)
+			tick = c.reset(conf.tickDuration)
 		}
 	}
 }

@@ -45,7 +45,7 @@ func TestStoreToS3ForNoSuppliedData(t *testing.T) {
 	}
 	defer closer()
 
-	r := storeToS3Config{
+	r := s3StoreConfig{
 		deliveryName:       "foobar",
 		bucketName:         bucketName,
 		prefix:             "",
@@ -75,7 +75,7 @@ func TestStoreToS3ForRawData(t *testing.T) {
 	}
 	defer closer()
 
-	r := storeToS3Config{
+	r := s3StoreConfig{
 		deliveryName:       "foobar",
 		bucketName:         bucketName,
 		prefix:             "",
@@ -126,7 +126,7 @@ func TestStoreToS3ForCompressedData(t *testing.T) {
 	}
 	defer closer()
 
-	r := storeToS3Config{
+	r := s3StoreConfig{
 		deliveryName:       "foobar",
 		bucketName:         bucketName,
 		prefix:             "",
