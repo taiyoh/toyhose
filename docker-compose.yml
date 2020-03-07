@@ -11,6 +11,14 @@ services:
       - MINIO_ACCESS_KEY=XXXXXXXX
       - MINIO_SECRET_KEY=YYYYYYYY
     command: server /data
+  kinesis:
+    image: instructure/kinesalite
+    environment:
+      - AWS_DEFAULT_REGION=ap-northeast-1
+      - AWS_ACCESS_KEY_ID=XXXXXXXX
+      - AWS_SECRET_ACCESS_KEY=YYYYYYYY
+    ports:
+      - '4567:4567'
 
 volumes:
   minio:

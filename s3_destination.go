@@ -101,10 +101,14 @@ func (c *s3Destination) Setup(ctx context.Context) (s3StoreConfig, error) {
 	}); err != nil {
 		return s3StoreConfig{}, err
 	}
+	prefix := ""
+	if c.conf.Prefix != nil {
+		prefix = *c.conf.Prefix
+	}
 	conf := s3StoreConfig{
 		deliveryName:       c.deliveryName,
 		bucketName:         bucketName,
-		prefix:             *c.conf.Prefix,
+		prefix:             prefix,
 		shouldGZipCompress: c.conf.CompressionFormat != nil && *c.conf.CompressionFormat == "GZIP",
 		s3cli:              s3cli,
 		bufferSize:         size,

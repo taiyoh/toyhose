@@ -15,11 +15,12 @@ import (
 
 // DeliveryStreamService represents interface for operating DeliveryStream resources.
 type DeliveryStreamService struct {
-	awsConf        *aws.Config
-	region         string
-	accountID      string
-	s3InjectedConf S3InjectedConf
-	pool           *deliveryStreamPool
+	awsConf             *aws.Config
+	region              string
+	accountID           string
+	s3InjectedConf      S3InjectedConf
+	kinesisInjectedConf KinesisInjectedConf
+	pool                *deliveryStreamPool
 }
 
 func (s *DeliveryStreamService) arnName(streamName string) string {
@@ -60,6 +61,13 @@ func (s *DeliveryStreamService) Create(ctx context.Context, input []byte) (*fire
 		}
 		go s3dest.Run(s3DestCtx, conf)
 		ds.s3Dest = s3dest
+	}
+	if i.KinesisStreamSourceConfiguration != nil {
+		consumer, err := newKinesisConsumer(ctx, s.awsConf, i.KinesisStreamSourceConfiguration, s.kinesisInjectedConf)
+		if err != nil {
+			return nil, err
+		}
+		go consumer.Run(dsCtx, source)
 	}
 	s.pool.Add(ds)
 	output := &firehose.CreateDeliveryStreamOutput{

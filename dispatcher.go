@@ -16,25 +16,32 @@ import (
 
 // DispatcherConfig represents configuration data struct for Dispatcher.
 type DispatcherConfig struct {
-	S3InjectedConf S3InjectedConf
-	AWSConf        *aws.Config
+	S3InjectedConf      S3InjectedConf
+	KinesisInjectedConf KinesisInjectedConf
+	AWSConf             *aws.Config
 }
 
 // S3InjectedConf represents injection to S3 destination BufferingHints forcely.
 type S3InjectedConf struct {
-	SizeInMBs         *int    `envconfig:"S3_BUFFERING_HINTS_SIZE_IN_MBS"`
-	IntervalInSeconds *int    `envconfig:"S3_BUFFERING_HINTS_INTERVAL_IN_SECONDS"`
-	EndPoint          *string `envconfig:"S3_ENDPOINT_URL"`
+	SizeInMBs         *int
+	IntervalInSeconds *int
+	EndPoint          *string
+}
+
+// KinesisInjectedConf represents configuration of KinesisStream source.
+type KinesisInjectedConf struct {
+	Endpoint *string
 }
 
 // NewDispatcher returns Dispatcher object.
 func NewDispatcher(conf *DispatcherConfig) *Dispatcher {
 	cred, _ := conf.AWSConf.Credentials.Get()
 	return &Dispatcher{
-		conf:           conf.AWSConf,
-		accountID:      cred.AccessKeyID,
-		region:         *conf.AWSConf.Region,
-		s3InjectedConf: conf.S3InjectedConf,
+		conf:                conf.AWSConf,
+		accountID:           cred.AccessKeyID,
+		region:              *conf.AWSConf.Region,
+		s3InjectedConf:      conf.S3InjectedConf,
+		kinesisInjectedConf: conf.KinesisInjectedConf,
 		pool: &deliveryStreamPool{
 			pool: map[string]*deliveryStream{},
 		},
@@ -43,11 +50,12 @@ func NewDispatcher(conf *DispatcherConfig) *Dispatcher {
 
 // Dispatcher represents firehose API handler.
 type Dispatcher struct {
-	conf           *aws.Config
-	accountID      string
-	region         string
-	s3InjectedConf S3InjectedConf
-	pool           *deliveryStreamPool
+	conf                *aws.Config
+	accountID           string
+	region              string
+	s3InjectedConf      S3InjectedConf
+	kinesisInjectedConf KinesisInjectedConf
+	pool                *deliveryStreamPool
 }
 
 // Dispatch handlers HTTP request as http.HandlerFunc interface.
