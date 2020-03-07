@@ -3,6 +3,7 @@ package toyhose
 import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/service/kinesis"
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
@@ -24,6 +25,21 @@ func setupS3(s3cli *s3.S3, bucket string) (func(), error) {
 	}
 	fn := func() {
 		s3cli.DeleteBucket(&s3.DeleteBucketInput{Bucket: &bucket})
+	}
+	return fn, nil
+}
+
+func setupKinesisStream(kinCli *kinesis.Kinesis, streamName string, shardCount int64) (func(), error) {
+	if _, err := kinCli.CreateStream(&kinesis.CreateStreamInput{
+		StreamName: &streamName,
+		ShardCount: &shardCount,
+	}); err != nil {
+		return nil, err
+	}
+	fn := func() {
+		kinCli.DeleteStream(&kinesis.DeleteStreamInput{
+			StreamName: &streamName,
+		})
 	}
 	return fn, nil
 }

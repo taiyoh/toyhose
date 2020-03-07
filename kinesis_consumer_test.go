@@ -2,7 +2,9 @@ package toyhose
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"testing"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/firehose"
 	"github.com/aws/aws-sdk-go/service/kinesis"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/google/uuid"
 )
 
@@ -104,4 +107,88 @@ func TestKinesisConsumer(t *testing.T) {
 			t.Error("consumer not found")
 		}
 	})
+}
+
+func TestInputFromKinesis(t *testing.T) {
+	streamName := "input-from-stream-" + uuid.New().String()
+	s3cli := s3.New(session.New(awsConf.WithEndpoint(s3EndpointURL).WithS3ForcePathStyle(true).WithDisableSSL(true)))
+	kinCli := kinesis.New(session.New(awsConf.WithEndpoint(kinesisEndpointURL)))
+	closer, err := setupKinesisStream(kinCli, streamName, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closer()
+	s3Closer, err := setupS3(s3cli, streamName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s3Closer()
+
+	cred, _ := awsConf.Credentials.Get()
+	svc := &DeliveryStreamService{
+		awsConf:   awsConf,
+		region:    *awsConf.Region,
+		accountID: cred.AccessKeyID,
+		s3InjectedConf: S3InjectedConf{
+			IntervalInSeconds: aws.Int(1),
+			EndPoint:          aws.String(s3EndpointURL),
+		},
+		kinesisInjectedConf: KinesisInjectedConf{
+			Endpoint: aws.String(kinesisEndpointURL),
+		},
+		pool: &deliveryStreamPool{
+			pool: map[string]*deliveryStream{},
+		},
+	}
+	createInputBytes, _ := json.Marshal(&firehose.CreateDeliveryStreamInput{
+		DeliveryStreamName: &streamName,
+		S3DestinationConfiguration: &firehose.S3DestinationConfiguration{
+			BucketARN: aws.String("arn:aws:s3:::" + streamName),
+			BufferingHints: &firehose.BufferingHints{
+				IntervalInSeconds: aws.Int64(60),
+				SizeInMBs:         aws.Int64(50),
+			},
+			CompressionFormat: aws.String("UNCOMPRESSED"),
+			RoleARN:           aws.String("arn:aws:iam:role:foo-bar"),
+		},
+		KinesisStreamSourceConfiguration: &firehose.KinesisStreamSourceConfiguration{
+			KinesisStreamARN: aws.String(fmt.Sprintf("arn:aws:kinesis:%s:%s:stream/%s", *awsConf.Region, cred.AccessKeyID, streamName)),
+			RoleARN:          aws.String("arn:aws:iam:role:foo-bar"),
+		},
+	})
+	if _, err := svc.Create(context.Background(), createInputBytes); err != nil {
+		t.Fatal(err)
+	}
+
+	kinCli.PutRecord(&kinesis.PutRecordInput{
+		PartitionKey: aws.String("aaa"),
+		Data:         []byte("aaaaaaaaaaaaaaaiiiiiiiiiiiiiiii"),
+	})
+
+	var captured []byte
+	for i := 0; i < 10; i++ {
+		time.Sleep(500 * time.Millisecond)
+		out, err := s3cli.ListObjects(&s3.ListObjectsInput{Bucket: &streamName})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(out.Contents) < 1 {
+			continue
+		}
+		for _, o := range out.Contents {
+			obj, err := s3cli.GetObject(&s3.GetObjectInput{
+				Bucket: &streamName,
+				Key:    o.Key,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			b, _ := ioutil.ReadAll(obj.Body)
+			captured = append(captured, b...)
+		}
+	}
+
+	if c := string(captured); c != "aaaaaaaaaaaaaaaiiiiiiiiiiiiiiii" {
+		t.Errorf("captured data is wrong: %s", c)
+	}
 }
