@@ -15,6 +15,7 @@ func init() {
 	awsConf = aws.NewConfig().
 		WithRegion("us-east-1").
 		WithCredentials(credentials.NewStaticCredentials("XXXXXXXX", "YYYYYYYY", ""))
+	SetupLogger()
 }
 
 func setupS3(s3cli *s3.S3, bucket string) (func(), error) {
