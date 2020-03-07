@@ -71,32 +71,42 @@ func newKinesisConsumer(ctx context.Context, conf *aws.Config, sourceConf *fireh
 		shardIter[*shard.ShardId] = *out.ShardIterator
 	}
 	return &kinesisConsumer{
-		cli:       cli,
-		shardIter: shardIter,
+		streamName: streamName,
+		cli:        cli,
+		shardIter:  shardIter,
 	}, nil
 }
 
 type kinesisConsumer struct {
-	cli       *kinesis.Kinesis
-	shardIter map[string]string
+	streamName string
+	cli        *kinesis.Kinesis
+	shardIter  map[string]string
 }
 
 func (c *kinesisConsumer) Run(ctx context.Context, source chan *deliveryRecord) {
+	cLogger := log.Debug().Str("stream_name", c.streamName)
+	cLogger.Msg("start to capture stream")
 	wg := &sync.WaitGroup{}
-	wg.Add(2)
-	for _, iter := range c.shardIter {
-		go func(iter string) {
-			defer func() { wg.Done() }()
+	wg.Add(len(c.shardIter))
+	for shardID, iter := range c.shardIter {
+		go func(shardID, iter string) {
+			defer wg.Done()
+			logger := log.Debug().Str("shard_id", shardID)
 			for {
 				out, err := c.cli.GetRecordsWithContext(ctx, &kinesis.GetRecordsInput{
 					ShardIterator: &iter,
 				})
 				if err == context.Canceled {
+					logger.Msg("context canceled")
 					return
 				}
 				if err != nil {
-					// TODO: something
+					logger.Err(err).Msg("GetRecord error")
+					time.Sleep(time.Second)
 					continue
+				}
+				if l := len(out.Records); l > 0 {
+					logger.Msgf("captured %d records", l)
 				}
 				for _, record := range out.Records {
 					source <- &deliveryRecord{
@@ -107,7 +117,9 @@ func (c *kinesisConsumer) Run(ctx context.Context, source chan *deliveryRecord) 
 				iter = *out.NextShardIterator
 				time.Sleep(time.Second)
 			}
-		}(iter)
+		}(shardID, iter)
 	}
 	wg.Wait()
+
+	cLogger.Msg("capturing stream finish")
 }

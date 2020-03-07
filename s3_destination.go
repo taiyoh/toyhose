@@ -82,7 +82,6 @@ func storeToS3(ctx context.Context, conf s3StoreConfig, ts time.Time, records []
 				logger.Err(baseErr).Msg("awserr.RequestCanceled")
 				return
 			}
-			// TODO: logging
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
