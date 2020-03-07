@@ -62,14 +62,14 @@ func (s *DeliveryStreamService) Create(ctx context.Context, input []byte) (*fire
 		go s3dest.Run(s3DestCtx, conf)
 		ds.s3Dest = s3dest
 	}
-	// if i.KinesisStreamSourceConfiguration != nil {
-	// 	consumer, err := newKinesisConsumer(ctx, s.awsConf, i.KinesisStreamSourceConfiguration, s.kinesisInjectedConf)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	consumer.source = source
-	// 	go consumer.Run(dsCtx)
-	// }
+	if i.KinesisStreamSourceConfiguration != nil {
+		consumer, err := newKinesisConsumer(ctx, s.awsConf, i.KinesisStreamSourceConfiguration, s.kinesisInjectedConf)
+		if err != nil {
+			return nil, err
+		}
+		consumer.source = source
+		go consumer.Run(dsCtx)
+	}
 	s.pool.Add(ds)
 	output := &firehose.CreateDeliveryStreamOutput{
 		DeliveryStreamARN: &arn,

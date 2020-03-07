@@ -105,6 +105,7 @@ func (c *kinesisConsumer) Run(ctx context.Context) {
 						data: record.Data,
 					}
 				}
+				iter = *out.NextShardIterator
 				time.Sleep(time.Second)
 			}
 		}(iter)

@@ -118,6 +118,22 @@ func TestInputFromKinesis(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer closer()
+	streamIsActive := false
+	for i := 0; i < 20 || !streamIsActive; i++ {
+		out, err := kinCli.DescribeStream(&kinesis.DescribeStreamInput{
+			StreamName: &streamName,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if *out.StreamDescription.StreamStatus == "ACTIVE" {
+			streamIsActive = true
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !streamIsActive {
+		t.Fatal("stream is not activated")
+	}
 	s3Closer, err := setupS3(s3cli, streamName)
 	if err != nil {
 		t.Fatal(err)
@@ -160,10 +176,13 @@ func TestInputFromKinesis(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	kinCli.PutRecord(&kinesis.PutRecordInput{
+	if _, err := kinCli.PutRecord(&kinesis.PutRecordInput{
+		StreamName:   &streamName,
 		PartitionKey: aws.String("aaa"),
 		Data:         []byte("aaaaaaaaaaaaaaaiiiiiiiiiiiiiiii"),
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	var captured []byte
 	for i := 0; i < 10; i++ {
@@ -185,6 +204,9 @@ func TestInputFromKinesis(t *testing.T) {
 			}
 			b, _ := ioutil.ReadAll(obj.Body)
 			captured = append(captured, b...)
+		}
+		if len(captured) > 0 {
+			break
 		}
 	}
 
