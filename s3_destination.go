@@ -67,19 +67,26 @@ func storeToS3(ctx context.Context, conf s3StoreConfig, ts time.Time, records []
 		Body:   bytes.NewReader(seekable),
 		Key:    &key,
 	}
+	logger := log.Debug().Str("key", key)
+	logger.Int("size", len(seekable)).Msg("PutObject start")
 	cli := conf.s3cli
 	for i := 0; i < 30; i++ {
 		switch _, err := cli.PutObjectWithContext(ctx, input); err {
-		case nil, context.Canceled:
+		case nil:
+			logger.Msgf("PutObject succeeded. trial count: %d", i+1)
+		case context.Canceled:
+			logger.Msg("context.Canceled")
 			return
 		default:
 			if baseErr, ok := err.(awserr.Error); ok && baseErr.Code() == "RequestCanceled" {
+				logger.Err(baseErr).Msg("awserr.RequestCanceled")
 				return
 			}
 			// TODO: logging
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
+	logger.Msg("PutObject failed")
 }
 
 func (c *s3Destination) Setup(ctx context.Context) (s3StoreConfig, error) {
