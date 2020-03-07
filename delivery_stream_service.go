@@ -67,8 +67,7 @@ func (s *DeliveryStreamService) Create(ctx context.Context, input []byte) (*fire
 		if err != nil {
 			return nil, err
 		}
-		consumer.source = source
-		go consumer.Run(dsCtx)
+		go consumer.Run(dsCtx, source)
 	}
 	s.pool.Add(ds)
 	output := &firehose.CreateDeliveryStreamOutput{

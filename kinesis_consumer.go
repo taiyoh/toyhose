@@ -78,11 +78,10 @@ func newKinesisConsumer(ctx context.Context, conf *aws.Config, sourceConf *fireh
 
 type kinesisConsumer struct {
 	cli       *kinesis.Kinesis
-	source    chan *deliveryRecord
 	shardIter map[string]string
 }
 
-func (c *kinesisConsumer) Run(ctx context.Context) {
+func (c *kinesisConsumer) Run(ctx context.Context, source chan *deliveryRecord) {
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
 	for _, iter := range c.shardIter {
@@ -100,7 +99,7 @@ func (c *kinesisConsumer) Run(ctx context.Context) {
 					continue
 				}
 				for _, record := range out.Records {
-					c.source <- &deliveryRecord{
+					source <- &deliveryRecord{
 						id:   uuid.New().String(),
 						data: record.Data,
 					}

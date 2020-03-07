@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"testing"
 	"time"
 
@@ -172,9 +173,11 @@ func TestInputFromKinesis(t *testing.T) {
 			RoleARN:          aws.String("arn:aws:iam:role:foo-bar"),
 		},
 	})
-	if _, err := svc.Create(context.Background(), createInputBytes); err != nil {
+	createOutput, err := svc.Create(context.Background(), createInputBytes)
+	if err != nil {
 		t.Fatal(err)
 	}
+	deliveryStreamARN := *createOutput.DeliveryStreamARN
 
 	if _, err := kinCli.PutRecord(&kinesis.PutRecordInput{
 		StreamName:   &streamName,
@@ -212,5 +215,12 @@ func TestInputFromKinesis(t *testing.T) {
 
 	if c := string(captured); c != "aaaaaaaaaaaaaaaiiiiiiiiiiiiiiii" {
 		t.Errorf("captured data is wrong: %s", c)
+	}
+
+	deleteInputBytes, _ := json.Marshal(firehose.DeleteDeliveryStreamInput{
+		DeliveryStreamName: aws.String(strings.Split(deliveryStreamARN, "/")[1]),
+	})
+	if _, err := svc.Delete(context.Background(), deleteInputBytes); err != nil {
+		t.Error(err)
 	}
 }
