@@ -6,21 +6,20 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"github.com/taiyoh/toyhose"
 )
 
 func main() {
-	setupLogger()
+	if err := toyhose.SetupLogger(); err != nil {
+		panic(err)
+	}
+	log := toyhose.Logger()
 
 	conf := &toyhoseConfig{}
 	if err := envconfig.Process("", conf); err != nil {
@@ -94,32 +93,4 @@ type toyhoseConfig struct {
 	S3IntervalInSeconds *int    `envconfig:"S3_BUFFERING_HINTS_INTERVAL_IN_SECONDS"`
 	S3EndPoint          *string `envconfig:"S3_ENDPOINT_URL"`
 	KinesisEndpoint     *string `envconfig:"KINESIS_STREAM_ENDPOINT_URL"`
-}
-
-func setupLogger() {
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
-	zerolog.TimeFieldFormat = time.RFC3339Nano
-	output := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "2006-01-02 15:04:05.000000"}
-	output.FormatLevel = func(i interface{}) string {
-		return fmt.Sprintf("%-6s", i)
-	}
-	output.FormatMessage = func(i interface{}) string {
-		return fmt.Sprintf(" %s ", i)
-	}
-	output.FormatFieldName = func(i interface{}) string {
-		return fmt.Sprintf("%s:", i)
-	}
-	output.FormatFieldValue = func(i interface{}) string {
-		return fmt.Sprintf("%s", i)
-	}
-	output.FormatCaller = func(i interface{}) string {
-		t := fmt.Sprintf("%s", i)
-		s := strings.Split(t, ":")
-		if 2 != len(s) {
-			return t
-		}
-		f := filepath.Base(s[0])
-		return f + ":" + s[1]
-	}
-	log.Logger = zerolog.New(output).With().Timestamp().Caller().Logger()
 }

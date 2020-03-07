@@ -107,6 +107,7 @@ func (s *DeliveryStreamService) Put(ctx context.Context, input []byte) (*firehos
 	if ds == nil {
 		return nil, awserr.New(firehose.ErrCodeResourceNotFoundException, "DeliveryStream not found", fmt.Errorf("DeliveryStreamName: %s not found", *i.DeliveryStreamName))
 	}
+	log.Debug().Str("delivery_stream", *i.DeliveryStreamName).Msg("processing PutRecord request")
 	recordIDs := putData(ds, []*firehose.Record{i.Record})
 	output := &firehose.PutRecordOutput{
 		Encrypted: aws.Bool(false),
@@ -142,6 +143,7 @@ func (s *DeliveryStreamService) PutBatch(ctx context.Context, input []byte) (*fi
 	if ds == nil {
 		return nil, awserr.New(firehose.ErrCodeResourceNotFoundException, "DeliveryStream not found", fmt.Errorf("DeliveryStreamName: %s not found", *i.DeliveryStreamName))
 	}
+	log.Debug().Str("delivery_stream", *i.DeliveryStreamName).Msgf("processing PutRecordBatch request for %d records", len(i.Records))
 	recordIDs := putData(ds, i.Records)
 	output := &firehose.PutRecordBatchOutput{
 		FailedPutCount: aws.Int64(0),

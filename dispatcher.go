@@ -75,11 +75,12 @@ func (d *Dispatcher) Dispatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	svc := &DeliveryStreamService{
-		awsConf:        d.conf,
-		region:         d.region,
-		accountID:      d.accountID,
-		s3InjectedConf: d.s3InjectedConf,
-		pool:           d.pool,
+		awsConf:             d.conf,
+		region:              d.region,
+		accountID:           d.accountID,
+		s3InjectedConf:      d.s3InjectedConf,
+		kinesisInjectedConf: d.kinesisInjectedConf,
+		pool:                d.pool,
 	}
 	switch op {
 	case "CreateDeliveryStream":

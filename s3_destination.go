@@ -67,19 +67,25 @@ func storeToS3(ctx context.Context, conf s3StoreConfig, ts time.Time, records []
 		Body:   bytes.NewReader(seekable),
 		Key:    &key,
 	}
+	log.Debug().Str("key", key).Int("size", len(seekable)).Msg("PutObject start")
 	cli := conf.s3cli
 	for i := 0; i < 30; i++ {
 		switch _, err := cli.PutObjectWithContext(ctx, input); err {
-		case nil, context.Canceled:
+		case nil:
+			log.Debug().Str("key", key).Msgf("PutObject succeeded. trial count: %d", i+1)
+			return
+		case context.Canceled:
+			log.Debug().Str("key", key).Msg("context.Canceled")
 			return
 		default:
 			if baseErr, ok := err.(awserr.Error); ok && baseErr.Code() == "RequestCanceled" {
+				log.Debug().Str("key", key).Err(baseErr).Msg("awserr.RequestCanceled")
 				return
 			}
-			// TODO: logging
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
+	log.Debug().Str("key", key).Msg("PutObject failed")
 }
 
 func (c *s3Destination) Setup(ctx context.Context) (s3StoreConfig, error) {
@@ -134,15 +140,18 @@ func (c *s3Destination) Run(ctx context.Context, conf s3StoreConfig) {
 	for {
 		select {
 		case <-ctx.Done():
+			log.Debug().Msgf("finish S3Destination in deliveryStream:%s", conf.deliveryName)
 			c.finalize(conf)
 			return
 		case r, ok := <-c.source:
 			if !ok {
+				log.Debug().Msgf("deliveryStream:%s is deleted", conf.deliveryName)
 				c.finalize(conf)
 				return
 			}
 			c.captured = append(c.captured, r)
 			c.capturedSize += len(r.data)
+			log.Debug().Int("current", c.capturedSize).Int("limit", conf.bufferSize).Msgf("data captured. size: %d", len(r.data))
 			if c.capturedSize >= conf.bufferSize {
 				storeToS3(ctx, conf, time.Now(), c.captured)
 				tick = c.reset(conf.tickDuration)
