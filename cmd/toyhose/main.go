@@ -26,11 +26,19 @@ func main() {
 	if err := envconfig.Process("", conf); err != nil {
 		log.Fatal().Err(err).Msg("invalid environment variables")
 	}
+	awsConf := aws.NewConfig().
+		WithRegion(conf.Region).
+		WithCredentials(credentials.NewStaticCredentials(conf.AccessKeyID, conf.SecretKey, ""))
 	d := toyhose.NewDispatcher(&toyhose.DispatcherConfig{
-		AWSConf: aws.NewConfig().
-			WithRegion(conf.Region).
-			WithCredentials(credentials.NewStaticCredentials(conf.AccessKeyID, conf.SecretKey, "")),
-		S3InjectedConf: conf.S3,
+		AWSConf: awsConf,
+		S3InjectedConf: toyhose.S3InjectedConf{
+			SizeInMBs:         conf.S3SizeInMBs,
+			IntervalInSeconds: conf.S3IntervalInSeconds,
+			EndPoint:          conf.S3EndPoint,
+		},
+		KinesisInjectedConf: toyhose.KinesisInjectedConf{
+			Endpoint: conf.KinesisEndpoint,
+		},
 	})
 
 	mux := http.NewServeMux()
@@ -78,11 +86,14 @@ func main() {
 }
 
 type toyhoseConfig struct {
-	S3          toyhose.S3InjectedConf
-	AccessKeyID string `envconfig:"AWS_ACCESS_KEY_ID"     required:"true"`
-	SecretKey   string `envconfig:"AWS_SECRET_ACCESS_KEY" required:"true"`
-	Region      string `envconfig:"AWS_REGION"            default:"us-east-1"`
-	Port        int    `envconfig:"PORT"                  default:"4573"`
+	AccessKeyID         string  `envconfig:"AWS_ACCESS_KEY_ID"     required:"true"`
+	SecretKey           string  `envconfig:"AWS_SECRET_ACCESS_KEY" required:"true"`
+	Region              string  `envconfig:"AWS_REGION"            default:"us-east-1"`
+	Port                int     `envconfig:"PORT"                  default:"4573"` // inspired by localstack
+	S3SizeInMBs         *int    `envconfig:"S3_BUFFERING_HINTS_SIZE_IN_MBS"`
+	S3IntervalInSeconds *int    `envconfig:"S3_BUFFERING_HINTS_INTERVAL_IN_SECONDS"`
+	S3EndPoint          *string `envconfig:"S3_ENDPOINT_URL"`
+	KinesisEndpoint     *string `envconfig:"KINESIS_STREAM_ENDPOINT_URL"`
 }
 
 func setupLogger() {

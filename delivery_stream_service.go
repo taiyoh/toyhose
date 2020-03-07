@@ -15,11 +15,12 @@ import (
 
 // DeliveryStreamService represents interface for operating DeliveryStream resources.
 type DeliveryStreamService struct {
-	awsConf        *aws.Config
-	region         string
-	accountID      string
-	s3InjectedConf S3InjectedConf
-	pool           *deliveryStreamPool
+	awsConf             *aws.Config
+	region              string
+	accountID           string
+	s3InjectedConf      S3InjectedConf
+	kinesisInjectedConf KinesisInjectedConf
+	pool                *deliveryStreamPool
 }
 
 func (s *DeliveryStreamService) arnName(streamName string) string {
