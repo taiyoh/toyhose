@@ -15,6 +15,13 @@ import (
 	"github.com/taiyoh/toyhose"
 )
 
+// LDFLAGS="-s -w -X main.version=$(GIT_VERSION) -X main.commit=$(CURRENT_REVISION) -X main.date=$(CURRENT_DATE)"
+
+var (
+	version string = "HEAD"
+	commit  string = "not-registered"
+)
+
 func main() {
 	if err := toyhose.SetupLogger(); err != nil {
 		panic(err)
@@ -77,7 +84,9 @@ func main() {
 		}
 	}()
 
-	log.Info().Int("port", conf.Port).Msg("starting toyhose server")
+	log.Info().Int("port", conf.Port).
+		Str("version", version).
+		Str("commit", commit).Msgf("starting toyhose server")
 
 	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 		log.Error().Err(err).Msg("ListenAndServe failed")
