@@ -2,29 +2,40 @@ package toyhose
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
+
+	"github.com/aws/aws-sdk-go/service/firehose"
+	"github.com/google/uuid"
 )
 
 type deliveryStream struct {
-	arn       string
-	source    chan *deliveryRecord
-	closer    context.CancelFunc
-	s3Dest    *s3Destination
-	createdAt time.Time
+	arn                string
+	deliveryStreamName string
+	deliveryStreamType string
+	recordCh           chan *deliveryRecord
+	closer             context.CancelFunc
+	destDesc           *firehose.DestinationDescription
+	sourceDesc         *firehose.SourceDescription
+	createdAt          time.Time
 }
 
 func (d *deliveryStream) Close() {
 	d.closer()
-	if d.s3Dest != nil {
-		d.s3Dest.Close()
-	}
-	close(d.source)
+	close(d.recordCh)
 }
 
 type deliveryRecord struct {
 	id   string
 	data []byte
+}
+
+func newDeliveryRecord(data []byte) *deliveryRecord {
+	return &deliveryRecord{
+		id:   uuid.New().String(),
+		data: data,
+	}
 }
 
 type deliveryStreamPool struct {
@@ -56,4 +67,38 @@ func (p *deliveryStreamPool) Delete(arn string) *deliveryStream {
 		return ds
 	}
 	return nil
+}
+
+func (p *deliveryStreamPool) FindAllBySource(streamType string, from *string, limit *int64) ([]*deliveryStream, bool) {
+	var pickups []*deliveryStream
+	for _, ds := range p.pool {
+		if ds.deliveryStreamType != streamType {
+			continue
+		}
+		pickups = append(pickups, ds)
+	}
+	sort.Slice(pickups, func(i, j int) bool {
+		return pickups[i].createdAt.Before(pickups[j].createdAt)
+	})
+
+	if from != nil {
+		idx := 0
+		for i, v := range pickups {
+			if v.deliveryStreamName == *from {
+				idx = i + 1
+				break
+			}
+		}
+		pickups = pickups[idx:]
+	}
+
+	hasNext := false
+
+	if limit != nil {
+		if lim := int(*limit); len(pickups) > lim {
+			hasNext = true
+			pickups = pickups[:lim]
+		}
+	}
+	return pickups, hasNext
 }

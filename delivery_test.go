@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
@@ -68,25 +69,50 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 		})
 	}
 
-	t.Run("create delivery_stream", func(t *testing.T) {
-		out, err := fh.CreateDeliveryStream(&firehose.CreateDeliveryStreamInput{
+	t.Run("create and describe delivery_stream", func(t *testing.T) {
+		bufferingHints := &firehose.BufferingHints{
+			SizeInMBs:         aws.Int64(32),
+			IntervalInSeconds: aws.Int64(60),
+		}
+		cout, err := fh.CreateDeliveryStream(&firehose.CreateDeliveryStreamInput{
 			DeliveryStreamName: &streamName,
 			DeliveryStreamType: aws.String("DirectPut"),
 			S3DestinationConfiguration: &firehose.S3DestinationConfiguration{
-				BucketARN: aws.String("arn:aws:s3:::" + bucketName),
-				BufferingHints: &firehose.BufferingHints{
-					SizeInMBs:         aws.Int64(32),
-					IntervalInSeconds: aws.Int64(60),
-				},
-				Prefix:  &prefix,
-				RoleARN: aws.String("foo"),
+				BucketARN:      aws.String("arn:aws:s3:::" + bucketName),
+				BufferingHints: bufferingHints,
+				Prefix:         &prefix,
+				RoleARN:        aws.String("foo"),
 			},
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if out.DeliveryStreamARN == nil {
+		if cout.DeliveryStreamARN == nil {
 			t.Error("deliveryStreamARN not found")
+		}
+
+		dout, err := fh.DescribeDeliveryStream(&firehose.DescribeDeliveryStreamInput{
+			DeliveryStreamName: &streamName,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if dout.DeliveryStreamDescription.Source != nil {
+			t.Error("streamType is DirectPut")
+		}
+		if len(dout.DeliveryStreamDescription.Destinations) != 1 {
+			t.Errorf("unexpected destination_description included %#v", dout.DeliveryStreamDescription.Destinations)
+		}
+		desc := dout.DeliveryStreamDescription.Destinations[0]
+		if desc.S3DestinationDescription == nil {
+			t.Fatal("S3DestinationDescription is missing")
+		}
+		s3Dest := desc.S3DestinationDescription
+		if *s3Dest.BucketARN != "arn:aws:s3:::"+bucketName {
+			t.Errorf("unexpected BucketARN: %s", *s3Dest.BucketARN)
+		}
+		if !reflect.DeepEqual(*s3Dest.BufferingHints, *bufferingHints) {
+			t.Errorf("unexpected bufferingHints: %#v", s3Dest.BufferingHints)
 		}
 	})
 
@@ -170,6 +196,83 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 			DeliveryStreamName: &streamName,
 		}); err != nil {
 			t.Fatal(err)
+		}
+	})
+
+	t.Run("list deliveryStreams", func(t *testing.T) {
+		streamNameBase := "stream-for-listing-%d"
+		input := &firehose.CreateDeliveryStreamInput{
+			DeliveryStreamType: aws.String("DirectPut"),
+			S3DestinationConfiguration: &firehose.S3DestinationConfiguration{
+				BucketARN: aws.String("arn:aws:s3:::" + bucketName),
+				BufferingHints: &firehose.BufferingHints{
+					SizeInMBs:         aws.Int64(1),
+					IntervalInSeconds: aws.Int64(60),
+				},
+				Prefix:  &prefix,
+				RoleARN: aws.String("foo"),
+			},
+		}
+		for i := 1; i <= 15; i++ {
+			input.DeliveryStreamName = aws.String(fmt.Sprintf(streamNameBase, i))
+			out, err := fh.CreateDeliveryStream(input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if out.DeliveryStreamARN == nil {
+				t.Fatal("deliveryStreamARN not found")
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+		out, err := fh.ListDeliveryStreams(&firehose.ListDeliveryStreamsInput{
+			DeliveryStreamType: aws.String("DirectPut"),
+			Limit:              aws.Int64(10),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !*out.HasMoreDeliveryStreams {
+			t.Error("HasMoreDeliveryStreams should be true")
+		}
+		if l := len(out.DeliveryStreamNames); l != 10 {
+			t.Errorf("unexpected StreamNames returns: %d", l)
+		}
+		for i := 0; i < 10; i++ {
+			expected := fmt.Sprintf(streamNameBase, i+1)
+			if *out.DeliveryStreamNames[i] != expected {
+				t.Errorf("index:%d expected:%s, actual:%s", i, expected, *out.DeliveryStreamNames[i])
+			}
+		}
+		out, err = fh.ListDeliveryStreams(&firehose.ListDeliveryStreamsInput{
+			DeliveryStreamType:               aws.String("DirectPut"),
+			ExclusiveStartDeliveryStreamName: aws.String(fmt.Sprintf(streamNameBase, 10)),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if *out.HasMoreDeliveryStreams {
+			t.Error("HasMoreDeliveryStreams should be false")
+		}
+		if l := len(out.DeliveryStreamNames); l != 5 {
+			t.Errorf("unexpected StreamNames returns: %d", l)
+		}
+		for i := 0; i < 5; i++ {
+			expected := fmt.Sprintf(streamNameBase, i+11)
+			if *out.DeliveryStreamNames[i] != expected {
+				t.Errorf("index:%d expected:%s, actual:%s", i, expected, *out.DeliveryStreamNames[i])
+			}
+		}
+		out, err = fh.ListDeliveryStreams(&firehose.ListDeliveryStreamsInput{
+			DeliveryStreamType: aws.String("KinesisStreamAsSource"),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if *out.HasMoreDeliveryStreams {
+			t.Error("HasMoreDeliveryStreams should be false")
+		}
+		if l := len(out.DeliveryStreamNames); l != 0 {
+			t.Errorf("unexpected StreamNames returns: %d", l)
 		}
 	})
 }

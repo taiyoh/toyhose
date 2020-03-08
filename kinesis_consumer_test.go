@@ -159,6 +159,7 @@ func TestInputFromKinesis(t *testing.T) {
 	}
 	createInputBytes, _ := json.Marshal(&firehose.CreateDeliveryStreamInput{
 		DeliveryStreamName: &streamName,
+		DeliveryStreamType: aws.String("KinesisStreamAsSource"),
 		S3DestinationConfiguration: &firehose.S3DestinationConfiguration{
 			BucketARN: aws.String("arn:aws:s3:::" + streamName),
 			BufferingHints: &firehose.BufferingHints{

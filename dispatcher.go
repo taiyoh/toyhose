@@ -95,6 +95,12 @@ func (d *Dispatcher) Dispatch(w http.ResponseWriter, r *http.Request) {
 	case "PutRecordBatch":
 		out, err := svc.PutBatch(r.Context(), b.Bytes())
 		outputForJSON(w, out, err)
+	case "ListDeliveryStreams":
+		out, err := svc.Listing(r.Context(), b.Bytes())
+		outputForJSON(w, out, err)
+	case "DescribeDeliveryStream":
+		out, err := svc.Describe(r.Context(), b.Bytes())
+		outputForJSON(w, out, err)
 	default:
 		err := awserr.New("InvalidAction", "invalid action received", errInvalidTargetHeader)
 		outputForJSON(w, nil, err)
