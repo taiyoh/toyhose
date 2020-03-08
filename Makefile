@@ -20,4 +20,4 @@ build:
 	cd pkg/$(GIT_VERSION)/toyhose_darwin_amd64  && zip toyhose_$(GIT_VERSION)_darwin_amd64.zip * && mv toyhose_$(GIT_VERSION)_darwin_amd64.zip ../dist
 
 release:
-	ghr $(GIT_VERSION) pkg/$(GIT_VERSION)/dist
+	ghr -b "$(shell ghch --format=markdown --latest)" -n $(GIT_VERSION) $(GIT_VERSION) pkg/$(GIT_VERSION)/dist
