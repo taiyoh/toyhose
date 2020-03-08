@@ -4,21 +4,20 @@ import (
 	"context"
 	"sync"
 	"time"
+
+	"github.com/aws/aws-sdk-go/service/firehose"
 )
 
 type deliveryStream struct {
 	arn       string
 	source    chan *deliveryRecord
 	closer    context.CancelFunc
-	s3Dest    *s3Destination
+	conf      *firehose.CreateDeliveryStreamInput
 	createdAt time.Time
 }
 
 func (d *deliveryStream) Close() {
 	d.closer()
-	if d.s3Dest != nil {
-		d.s3Dest.Close()
-	}
 	close(d.source)
 }
 

@@ -19,9 +19,7 @@ import (
 
 type s3Destination struct {
 	deliveryName string
-	source       <-chan *deliveryRecord
 	conf         *firehose.S3DestinationConfiguration
-	closer       context.CancelFunc
 	captured     []*deliveryRecord
 	awsConf      *aws.Config
 	injectedConf S3InjectedConf
@@ -135,7 +133,7 @@ func (c *s3Destination) finalize(conf s3StoreConfig) {
 	storeToS3(newCtx, conf, time.Now(), c.captured)
 }
 
-func (c *s3Destination) Run(ctx context.Context, conf s3StoreConfig) {
+func (c *s3Destination) Run(ctx context.Context, conf s3StoreConfig, source chan *deliveryRecord) {
 	tick := c.reset(conf.tickDuration)
 	for {
 		select {
@@ -143,7 +141,7 @@ func (c *s3Destination) Run(ctx context.Context, conf s3StoreConfig) {
 			log.Debug().Msgf("finish S3Destination in deliveryStream:%s", conf.deliveryName)
 			c.finalize(conf)
 			return
-		case r, ok := <-c.source:
+		case r, ok := <-source:
 			if !ok {
 				log.Debug().Msgf("deliveryStream:%s is deleted", conf.deliveryName)
 				c.finalize(conf)
@@ -161,8 +159,4 @@ func (c *s3Destination) Run(ctx context.Context, conf s3StoreConfig) {
 			tick = c.reset(conf.tickDuration)
 		}
 	}
-}
-
-func (c *s3Destination) Close() {
-	c.closer()
 }

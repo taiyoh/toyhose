@@ -29,7 +29,6 @@ func TestS3DestinationForExceededDataSize(t *testing.T) {
 			EndPoint: &s3EndpointURL,
 		},
 		deliveryName: "foobar",
-		source:       ch,
 		conf: &firehose.S3DestinationConfiguration{
 			BucketARN: aws.String("arn:aws:s3:::" + bucketName),
 			BufferingHints: &firehose.BufferingHints{
@@ -45,7 +44,7 @@ func TestS3DestinationForExceededDataSize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	go dst.Run(ctx, conf)
+	go dst.Run(ctx, conf, ch)
 
 	b, err := ioutil.ReadFile(filepath.Join("testdata", "dummy.json"))
 	if err != nil {
@@ -108,7 +107,6 @@ func TestS3DestinationForExceededInterval(t *testing.T) {
 			EndPoint: &s3EndpointURL,
 		},
 		deliveryName: "foobar",
-		source:       ch,
 		conf: &firehose.S3DestinationConfiguration{
 			BucketARN: aws.String("arn:aws:s3:::" + bucketName),
 			BufferingHints: &firehose.BufferingHints{
@@ -124,7 +122,7 @@ func TestS3DestinationForExceededInterval(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	go dst.Run(ctx, conf)
+	go dst.Run(ctx, conf, ch)
 
 	b, err := ioutil.ReadFile(filepath.Join("testdata", "dummy.json"))
 	if err != nil {

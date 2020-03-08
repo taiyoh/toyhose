@@ -43,24 +43,21 @@ func (s *DeliveryStreamService) Create(ctx context.Context, input []byte) (*fire
 		arn:       arn,
 		source:    source,
 		closer:    dsCancel,
+		conf:      i,
 		createdAt: time.Now(),
 	}
 	if i.S3DestinationConfiguration != nil {
-		s3DestCtx, s3DestCancel := context.WithCancel(dsCtx)
 		s3dest := &s3Destination{
 			deliveryName: *i.DeliveryStreamName,
-			source:       source,
 			conf:         i.S3DestinationConfiguration,
-			closer:       s3DestCancel,
 			injectedConf: s.s3InjectedConf,
 			awsConf:      s.awsConf,
 		}
-		conf, err := s3dest.Setup(s3DestCtx)
+		conf, err := s3dest.Setup(dsCtx)
 		if err != nil {
 			return nil, awserr.New(firehose.ErrCodeResourceNotFoundException, "invalid BucketName", err)
 		}
-		go s3dest.Run(s3DestCtx, conf)
-		ds.s3Dest = s3dest
+		go s3dest.Run(dsCtx, conf, source)
 	}
 	if i.KinesisStreamSourceConfiguration != nil {
 		consumer, err := newKinesisConsumer(ctx, s.awsConf, i.KinesisStreamSourceConfiguration, s.kinesisInjectedConf)
