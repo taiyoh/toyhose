@@ -2,7 +2,7 @@ GIT_VERSION=$(shell git describe --tags)
 CURRENT_REVISION=$(shell git rev-parse --short HEAD)
 LDFLAGS="-s -w -X main.version=$(GIT_VERSION) -X main.commit=$(CURRENT_REVISION)"
 
-.PHONY: test install
+.PHONY: test install build release
 
 install:
 	cd cmd/toyhose && go install
