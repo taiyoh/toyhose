@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
@@ -68,25 +69,50 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 		})
 	}
 
-	t.Run("create delivery_stream", func(t *testing.T) {
-		out, err := fh.CreateDeliveryStream(&firehose.CreateDeliveryStreamInput{
+	t.Run("create and describe delivery_stream", func(t *testing.T) {
+		bufferingHints := &firehose.BufferingHints{
+			SizeInMBs:         aws.Int64(32),
+			IntervalInSeconds: aws.Int64(60),
+		}
+		cout, err := fh.CreateDeliveryStream(&firehose.CreateDeliveryStreamInput{
 			DeliveryStreamName: &streamName,
 			DeliveryStreamType: aws.String("DirectPut"),
 			S3DestinationConfiguration: &firehose.S3DestinationConfiguration{
-				BucketARN: aws.String("arn:aws:s3:::" + bucketName),
-				BufferingHints: &firehose.BufferingHints{
-					SizeInMBs:         aws.Int64(32),
-					IntervalInSeconds: aws.Int64(60),
-				},
-				Prefix:  &prefix,
-				RoleARN: aws.String("foo"),
+				BucketARN:      aws.String("arn:aws:s3:::" + bucketName),
+				BufferingHints: bufferingHints,
+				Prefix:         &prefix,
+				RoleARN:        aws.String("foo"),
 			},
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if out.DeliveryStreamARN == nil {
+		if cout.DeliveryStreamARN == nil {
 			t.Error("deliveryStreamARN not found")
+		}
+
+		dout, err := fh.DescribeDeliveryStream(&firehose.DescribeDeliveryStreamInput{
+			DeliveryStreamName: &streamName,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if dout.DeliveryStreamDescription.Source != nil {
+			t.Error("streamType is DirectPut")
+		}
+		if len(dout.DeliveryStreamDescription.Destinations) != 1 {
+			t.Errorf("unexpected destination_description included %#v", dout.DeliveryStreamDescription.Destinations)
+		}
+		desc := dout.DeliveryStreamDescription.Destinations[0]
+		if desc.S3DestinationDescription == nil {
+			t.Fatal("S3DestinationDescription is missing")
+		}
+		s3Dest := desc.S3DestinationDescription
+		if *s3Dest.BucketARN != "arn:aws:s3:::"+bucketName {
+			t.Errorf("unexpected BucketARN: %s", *s3Dest.BucketARN)
+		}
+		if !reflect.DeepEqual(*s3Dest.BufferingHints, *bufferingHints) {
+			t.Errorf("unexpected bufferingHints: %#v", s3Dest.BufferingHints)
 		}
 	})
 
