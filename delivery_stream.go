@@ -2,6 +2,7 @@ package toyhose
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
 
@@ -55,4 +56,38 @@ func (p *deliveryStreamPool) Delete(arn string) *deliveryStream {
 		return ds
 	}
 	return nil
+}
+
+func (p *deliveryStreamPool) FindAllBySource(streamType string, from *string, limit *int64) ([]*deliveryStream, bool) {
+	var pickups []*deliveryStream
+	for _, ds := range p.pool {
+		if *ds.conf.DeliveryStreamType != streamType {
+			continue
+		}
+		pickups = append(pickups, ds)
+	}
+	sort.Slice(pickups, func(i, j int) bool {
+		return pickups[i].createdAt.Before(pickups[j].createdAt)
+	})
+
+	if from != nil {
+		idx := 0
+		for i, v := range pickups {
+			if *v.conf.DeliveryStreamName == *from {
+				idx = i + 1
+				break
+			}
+		}
+		pickups = pickups[idx:]
+	}
+
+	hasNext := false
+
+	if limit != nil {
+		if lim := int(*limit); len(pickups) > lim {
+			hasNext = true
+			pickups = pickups[:lim]
+		}
+	}
+	return pickups, hasNext
 }

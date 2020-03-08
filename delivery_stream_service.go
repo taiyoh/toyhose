@@ -59,7 +59,7 @@ func (s *DeliveryStreamService) Create(ctx context.Context, input []byte) (*fire
 		}
 		go s3dest.Run(dsCtx, conf, source)
 	}
-	if i.KinesisStreamSourceConfiguration != nil {
+	if *i.DeliveryStreamType == "KinesisStreamAsSource" && i.KinesisStreamSourceConfiguration != nil {
 		consumer, err := newKinesisConsumer(ctx, s.awsConf, i.KinesisStreamSourceConfiguration, s.kinesisInjectedConf)
 		if err != nil {
 			return nil, err
@@ -152,4 +152,28 @@ func (s *DeliveryStreamService) PutBatch(ctx context.Context, input []byte) (*fi
 		})
 	}
 	return output, nil
+}
+
+// Listing returns registered deliveryStream names.
+func (s *DeliveryStreamService) Listing(ctx context.Context, input []byte) (*firehose.ListDeliveryStreamsOutput, error) {
+	i := &firehose.ListDeliveryStreamsInput{}
+	if err := json.Unmarshal(input, i); err != nil {
+		return nil, awserr.NewUnmarshalError(err, "Unmarshal error", input)
+	}
+	if err := i.Validate(); err != nil {
+		return nil, err
+	}
+
+	streams, hasNext := s.pool.FindAllBySource(*i.DeliveryStreamType, i.ExclusiveStartDeliveryStreamName, i.Limit)
+	responses := make([]*string, 0, len(streams))
+	for _, ds := range streams {
+		responses = append(responses, ds.conf.DeliveryStreamName)
+	}
+
+	out := &firehose.ListDeliveryStreamsOutput{
+		DeliveryStreamNames:    responses,
+		HasMoreDeliveryStreams: aws.Bool(hasNext),
+	}
+
+	return out, nil
 }
