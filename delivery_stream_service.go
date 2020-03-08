@@ -38,10 +38,14 @@ func (s *DeliveryStreamService) Create(ctx context.Context, input []byte) (*fire
 	arn := s.arnName(*i.DeliveryStreamName)
 	dsCtx, dsCancel := context.WithCancel(context.Background())
 	recordCh := make(chan *deliveryRecord, 128)
+	dsType := "DirectPut"
+	if i.DeliveryStreamType != nil {
+		dsType = *i.DeliveryStreamType
+	}
 	ds := &deliveryStream{
 		arn:                arn,
 		deliveryStreamName: *i.DeliveryStreamName,
-		deliveryStreamType: *i.DeliveryStreamType,
+		deliveryStreamType: dsType,
 		recordCh:           recordCh,
 		closer:             dsCancel,
 		destDesc:           &firehose.DestinationDescription{},
