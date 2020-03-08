@@ -13,7 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/firehose"
 	"github.com/aws/aws-sdk-go/service/kinesis"
-	"github.com/google/uuid"
 )
 
 var (
@@ -109,10 +108,7 @@ func (c *kinesisConsumer) Run(ctx context.Context, recordCh chan *deliveryRecord
 					log.Debug().Str("shard_id", shardID).Msgf("captured %d records", l)
 				}
 				for _, record := range out.Records {
-					recordCh <- &deliveryRecord{
-						id:   uuid.New().String(),
-						data: record.Data,
-					}
+					recordCh <- newDeliveryRecord(record.Data)
 				}
 				iter = *out.NextShardIterator
 				time.Sleep(time.Second)

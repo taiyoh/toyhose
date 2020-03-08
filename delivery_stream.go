@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/firehose"
+	"github.com/google/uuid"
 )
 
 type deliveryStream struct {
@@ -28,6 +29,13 @@ func (d *deliveryStream) Close() {
 type deliveryRecord struct {
 	id   string
 	data []byte
+}
+
+func newDeliveryRecord(data []byte) *deliveryRecord {
+	return &deliveryRecord{
+		id:   uuid.New().String(),
+		data: data,
+	}
 }
 
 type deliveryStreamPool struct {

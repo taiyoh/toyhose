@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/firehose"
-	"github.com/google/uuid"
 )
 
 // DeliveryStreamService represents interface for operating DeliveryStream resources.
@@ -139,9 +138,9 @@ func putData(ds *deliveryStream, records []*firehose.Record) []string {
 		if err != nil {
 			dst = record.Data
 		}
-		recID := uuid.New().String()
-		ds.recordCh <- &deliveryRecord{id: recID, data: dst}
-		recordIDs = append(recordIDs, recID)
+		rec := newDeliveryRecord(dst)
+		ds.recordCh <- rec
+		recordIDs = append(recordIDs, rec.id)
 	}
 	return recordIDs
 }
