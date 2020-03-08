@@ -10,16 +10,19 @@ import (
 )
 
 type deliveryStream struct {
-	arn       string
-	source    chan *deliveryRecord
-	closer    context.CancelFunc
-	conf      *firehose.CreateDeliveryStreamInput
-	createdAt time.Time
+	arn                string
+	deliveryStreamName string
+	deliveryStreamType string
+	recordCh           chan *deliveryRecord
+	closer             context.CancelFunc
+	destDesc           *firehose.DestinationDescription
+	sourceDesc         *firehose.SourceDescription
+	createdAt          time.Time
 }
 
 func (d *deliveryStream) Close() {
 	d.closer()
-	close(d.source)
+	close(d.recordCh)
 }
 
 type deliveryRecord struct {
@@ -61,7 +64,7 @@ func (p *deliveryStreamPool) Delete(arn string) *deliveryStream {
 func (p *deliveryStreamPool) FindAllBySource(streamType string, from *string, limit *int64) ([]*deliveryStream, bool) {
 	var pickups []*deliveryStream
 	for _, ds := range p.pool {
-		if *ds.conf.DeliveryStreamType != streamType {
+		if ds.deliveryStreamType != streamType {
 			continue
 		}
 		pickups = append(pickups, ds)
@@ -73,7 +76,7 @@ func (p *deliveryStreamPool) FindAllBySource(streamType string, from *string, li
 	if from != nil {
 		idx := 0
 		for i, v := range pickups {
-			if *v.conf.DeliveryStreamName == *from {
+			if v.deliveryStreamName == *from {
 				idx = i + 1
 				break
 			}

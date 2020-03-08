@@ -38,13 +38,15 @@ func (s *DeliveryStreamService) Create(ctx context.Context, input []byte) (*fire
 	}
 	arn := s.arnName(*i.DeliveryStreamName)
 	dsCtx, dsCancel := context.WithCancel(context.Background())
-	source := make(chan *deliveryRecord, 128)
+	recordCh := make(chan *deliveryRecord, 128)
 	ds := &deliveryStream{
-		arn:       arn,
-		source:    source,
-		closer:    dsCancel,
-		conf:      i,
-		createdAt: time.Now(),
+		arn:                arn,
+		deliveryStreamName: *i.DeliveryStreamName,
+		deliveryStreamType: *i.DeliveryStreamType,
+		recordCh:           recordCh,
+		closer:             dsCancel,
+		destDesc:           &firehose.DestinationDescription{},
+		createdAt:          time.Now(),
 	}
 	if i.S3DestinationConfiguration != nil {
 		s3dest := &s3Destination{
@@ -57,14 +59,31 @@ func (s *DeliveryStreamService) Create(ctx context.Context, input []byte) (*fire
 		if err != nil {
 			return nil, awserr.New(firehose.ErrCodeResourceNotFoundException, "invalid BucketName", err)
 		}
-		go s3dest.Run(dsCtx, conf, source)
+		ds.destDesc.S3DestinationDescription = &firehose.S3DestinationDescription{
+			BucketARN:               i.S3DestinationConfiguration.BucketARN,
+			BufferingHints:          i.S3DestinationConfiguration.BufferingHints,
+			CompressionFormat:       i.S3DestinationConfiguration.CompressionFormat,
+			EncryptionConfiguration: i.S3DestinationConfiguration.EncryptionConfiguration,
+			ErrorOutputPrefix:       i.S3DestinationConfiguration.ErrorOutputPrefix,
+			Prefix:                  i.S3DestinationConfiguration.Prefix,
+			RoleARN:                 i.S3DestinationConfiguration.RoleARN,
+		}
+		go s3dest.Run(dsCtx, conf, recordCh)
 	}
-	if *i.DeliveryStreamType == "KinesisStreamAsSource" && i.KinesisStreamSourceConfiguration != nil {
+	if ds.deliveryStreamType == "KinesisStreamAsSource" && i.KinesisStreamSourceConfiguration != nil {
 		consumer, err := newKinesisConsumer(ctx, s.awsConf, i.KinesisStreamSourceConfiguration, s.kinesisInjectedConf)
 		if err != nil {
+			ds.Close()
 			return nil, err
 		}
-		go consumer.Run(dsCtx, source)
+		ds.sourceDesc = &firehose.SourceDescription{
+			KinesisStreamSourceDescription: &firehose.KinesisStreamSourceDescription{
+				DeliveryStartTimestamp: aws.Time(ds.createdAt),
+				KinesisStreamARN:       i.KinesisStreamSourceConfiguration.KinesisStreamARN,
+				RoleARN:                i.KinesisStreamSourceConfiguration.RoleARN,
+			},
+		}
+		go consumer.Run(dsCtx, recordCh)
 	}
 	s.pool.Add(ds)
 	output := &firehose.CreateDeliveryStreamOutput{
@@ -121,7 +140,7 @@ func putData(ds *deliveryStream, records []*firehose.Record) []string {
 			dst = record.Data
 		}
 		recID := uuid.New().String()
-		ds.source <- &deliveryRecord{id: recID, data: dst}
+		ds.recordCh <- &deliveryRecord{id: recID, data: dst}
 		recordIDs = append(recordIDs, recID)
 	}
 	return recordIDs
@@ -167,12 +186,42 @@ func (s *DeliveryStreamService) Listing(ctx context.Context, input []byte) (*fir
 	streams, hasNext := s.pool.FindAllBySource(*i.DeliveryStreamType, i.ExclusiveStartDeliveryStreamName, i.Limit)
 	responses := make([]*string, 0, len(streams))
 	for _, ds := range streams {
-		responses = append(responses, ds.conf.DeliveryStreamName)
+		responses = append(responses, &ds.deliveryStreamName)
 	}
 
 	out := &firehose.ListDeliveryStreamsOutput{
 		DeliveryStreamNames:    responses,
 		HasMoreDeliveryStreams: aws.Bool(hasNext),
+	}
+
+	return out, nil
+}
+
+// Describe returns current deliveryStream definitions and statuses by supplied deliveryStreamName.
+func (s *DeliveryStreamService) Describe(ctx context.Context, input []byte) (*firehose.DescribeDeliveryStreamOutput, error) {
+	i := &firehose.DescribeDeliveryStreamInput{}
+	if err := json.Unmarshal(input, i); err != nil {
+		return nil, awserr.NewUnmarshalError(err, "Unmarshal error", input)
+	}
+	if err := i.Validate(); err != nil {
+		return nil, err
+	}
+	ds := s.pool.Find(s.arnName(*i.DeliveryStreamName))
+	if ds == nil {
+		return nil, awserr.New(firehose.ErrCodeResourceNotFoundException, "DeliveryStream not found", fmt.Errorf("DeliveryStreamName: %s not found", *i.DeliveryStreamName))
+	}
+
+	out := &firehose.DescribeDeliveryStreamOutput{
+		DeliveryStreamDescription: &firehose.DeliveryStreamDescription{
+			CreateTimestamp:      aws.Time(ds.createdAt),
+			DeliveryStreamARN:    &ds.arn,
+			DeliveryStreamStatus: aws.String("ACTIVE"),
+			DeliveryStreamName:   &ds.deliveryStreamName,
+			DeliveryStreamType:   &ds.deliveryStreamType,
+			Destinations:         []*firehose.DestinationDescription{ds.destDesc},
+			Source:               ds.sourceDesc,
+			VersionId:            aws.String("1"),
+		},
 	}
 
 	return out, nil

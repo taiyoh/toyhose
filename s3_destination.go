@@ -133,7 +133,7 @@ func (c *s3Destination) finalize(conf s3StoreConfig) {
 	storeToS3(newCtx, conf, time.Now(), c.captured)
 }
 
-func (c *s3Destination) Run(ctx context.Context, conf s3StoreConfig, source chan *deliveryRecord) {
+func (c *s3Destination) Run(ctx context.Context, conf s3StoreConfig, recordCh chan *deliveryRecord) {
 	tick := c.reset(conf.tickDuration)
 	for {
 		select {
@@ -141,7 +141,7 @@ func (c *s3Destination) Run(ctx context.Context, conf s3StoreConfig, source chan
 			log.Debug().Msgf("finish S3Destination in deliveryStream:%s", conf.deliveryName)
 			c.finalize(conf)
 			return
-		case r, ok := <-source:
+		case r, ok := <-recordCh:
 			if !ok {
 				log.Debug().Msgf("deliveryStream:%s is deleted", conf.deliveryName)
 				c.finalize(conf)

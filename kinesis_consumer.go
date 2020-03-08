@@ -83,7 +83,7 @@ type kinesisConsumer struct {
 	shardIter  map[string]string
 }
 
-func (c *kinesisConsumer) Run(ctx context.Context, source chan *deliveryRecord) {
+func (c *kinesisConsumer) Run(ctx context.Context, recordCh chan *deliveryRecord) {
 	log.Debug().Str("stream_name", c.streamName).Msg("starting to subscribe stream")
 	wg := &sync.WaitGroup{}
 	wg.Add(len(c.shardIter))
@@ -109,7 +109,7 @@ func (c *kinesisConsumer) Run(ctx context.Context, source chan *deliveryRecord) 
 					log.Debug().Str("shard_id", shardID).Msgf("captured %d records", l)
 				}
 				for _, record := range out.Records {
-					source <- &deliveryRecord{
+					recordCh <- &deliveryRecord{
 						id:   uuid.New().String(),
 						data: record.Data,
 					}
