@@ -1,7 +1,12 @@
+FROM golang:1.13.8-buster AS toyhose-builder
+
+ADD . /app
+WORKDIR /app
+
+RUN make docker
+
 FROM scratch
 
-ARG version
-
-ADD ./pkg/${version}/toyhose_linux_amd64/toyhose .
+COPY --from=toyhose-builder /bin/toyhose ./toyhose
 
 CMD [ "./toyhose" ]
