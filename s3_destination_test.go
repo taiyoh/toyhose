@@ -29,13 +29,11 @@ func TestS3DestinationForExceededDataSize(t *testing.T) {
 			EndPoint: &s3EndpointURL,
 		},
 		deliveryName: "foobar",
-		conf: &firehose.S3DestinationConfiguration{
-			BucketARN: aws.String("arn:aws:s3:::" + bucketName),
-			BufferingHints: &firehose.BufferingHints{
-				SizeInMBs:         aws.Int64(1),
-				IntervalInSeconds: aws.Int64(60),
-			},
-			Prefix: aws.String("aaa"),
+		prefix:       aws.String("aaa"),
+		bucketARN:    "arn:aws:s3:::" + bucketName,
+		bufferingHints: &firehose.BufferingHints{
+			SizeInMBs:         aws.Int64(1),
+			IntervalInSeconds: aws.Int64(60),
 		},
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -58,10 +56,10 @@ func TestS3DestinationForExceededDataSize(t *testing.T) {
 		sent += len(b)
 	}
 	var obj *s3.Object
-	for i := 0; i < 50; i++ {
+	for i := 0; i < 20; i++ {
 		out, err := s3cli.ListObjects(&s3.ListObjectsInput{
 			Bucket: &bucketName,
-			Prefix: dst.conf.Prefix,
+			Prefix: dst.prefix,
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -107,14 +105,12 @@ func TestS3DestinationForExceededInterval(t *testing.T) {
 			EndPoint: &s3EndpointURL,
 		},
 		deliveryName: "foobar",
-		conf: &firehose.S3DestinationConfiguration{
-			BucketARN: aws.String("arn:aws:s3:::" + bucketName),
-			BufferingHints: &firehose.BufferingHints{
-				SizeInMBs:         aws.Int64(50),
-				IntervalInSeconds: aws.Int64(1), // for test use only
-			},
-			Prefix: aws.String("bbb"),
+		bucketARN:    "arn:aws:s3:::" + bucketName,
+		bufferingHints: &firehose.BufferingHints{
+			SizeInMBs:         aws.Int64(50),
+			IntervalInSeconds: aws.Int64(1), // for test use only
 		},
+		prefix: aws.String("bbb"),
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -137,7 +133,7 @@ func TestS3DestinationForExceededInterval(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		out, err := s3cli.ListObjects(&s3.ListObjectsInput{
 			Bucket: &bucketName,
-			Prefix: dst.conf.Prefix,
+			Prefix: dst.prefix,
 		})
 		if err != nil {
 			t.Fatal(err)

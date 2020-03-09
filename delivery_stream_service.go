@@ -53,10 +53,14 @@ func (s *DeliveryStreamService) Create(ctx context.Context, input []byte) (*fire
 	}
 	if i.S3DestinationConfiguration != nil {
 		s3dest := &s3Destination{
-			deliveryName: *i.DeliveryStreamName,
-			conf:         i.S3DestinationConfiguration,
-			injectedConf: s.s3InjectedConf,
-			awsConf:      s.awsConf,
+			deliveryName:      *i.DeliveryStreamName,
+			bucketARN:         *i.S3DestinationConfiguration.BucketARN,
+			bufferingHints:    i.S3DestinationConfiguration.BufferingHints,
+			compressionFormat: i.S3DestinationConfiguration.CompressionFormat,
+			errorOutputPrefix: i.S3DestinationConfiguration.ErrorOutputPrefix,
+			prefix:            i.S3DestinationConfiguration.Prefix,
+			injectedConf:      s.s3InjectedConf,
+			awsConf:           s.awsConf,
 		}
 		conf, err := s3dest.Setup(dsCtx)
 		if err != nil {

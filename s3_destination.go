@@ -18,12 +18,16 @@ import (
 )
 
 type s3Destination struct {
-	deliveryName string
-	conf         *firehose.S3DestinationConfiguration
-	captured     []*deliveryRecord
-	awsConf      *aws.Config
-	injectedConf S3InjectedConf
-	capturedSize int
+	deliveryName      string
+	bucketARN         string
+	bufferingHints    *firehose.BufferingHints
+	compressionFormat *string
+	errorOutputPrefix *string
+	prefix            *string
+	captured          []*deliveryRecord
+	awsConf           *aws.Config
+	injectedConf      S3InjectedConf
+	capturedSize      int
 }
 
 func s3Client(conf *aws.Config, endpoint string) *s3.S3 {
@@ -86,17 +90,35 @@ func storeToS3(ctx context.Context, conf s3StoreConfig, ts time.Time, records []
 	log.Debug().Str("key", key).Msg("PutObject failed")
 }
 
-func (c *s3Destination) Setup(ctx context.Context) (s3StoreConfig, error) {
-	size := int(*c.conf.BufferingHints.SizeInMBs * 1024 * 1024)
+func (c *s3Destination) bufferSizeInMBs() int {
+	// https://docs.aws.amazon.com/firehose/latest/APIReference/API_BufferingHints.html
+	// > The default value is 5.
+	size := int(5)
+	if c.bufferingHints != nil && c.bufferingHints.SizeInMBs != nil {
+		size = int(*c.bufferingHints.SizeInMBs)
+	}
 	if c.injectedConf.SizeInMBs != nil {
-		size = *c.injectedConf.SizeInMBs * 1024 * 1024
+		size = *c.injectedConf.SizeInMBs
 	}
-	dur := int(*c.conf.BufferingHints.IntervalInSeconds)
+	return size
+}
+
+func (c *s3Destination) bufferIntervalSeconds() int64 {
+	// https://docs.aws.amazon.com/firehose/latest/APIReference/API_BufferingHints.html
+	// > The default value is 300.
+	dur := int64(300)
+	if c.bufferingHints != nil && c.bufferingHints.IntervalInSeconds != nil {
+		dur = *c.bufferingHints.IntervalInSeconds
+	}
 	if c.injectedConf.IntervalInSeconds != nil {
-		dur = *c.injectedConf.IntervalInSeconds
+		dur = int64(*c.injectedConf.IntervalInSeconds)
 	}
+	return dur
+}
+
+func (c *s3Destination) Setup(ctx context.Context) (s3StoreConfig, error) {
 	s3cli := s3Client(c.awsConf, *c.injectedConf.EndPoint)
-	bucketName := strings.ReplaceAll(*c.conf.BucketARN, "arn:aws:s3:::", "")
+	bucketName := strings.ReplaceAll(c.bucketARN, "arn:aws:s3:::", "")
 	if bucketName == "" {
 		return s3StoreConfig{}, errors.New("required bucket_name")
 	}
@@ -106,17 +128,17 @@ func (c *s3Destination) Setup(ctx context.Context) (s3StoreConfig, error) {
 		return s3StoreConfig{}, err
 	}
 	prefix := ""
-	if c.conf.Prefix != nil {
-		prefix = *c.conf.Prefix
+	if c.prefix != nil {
+		prefix = *c.prefix
 	}
 	conf := s3StoreConfig{
 		deliveryName:       c.deliveryName,
 		bucketName:         bucketName,
 		prefix:             prefix,
-		shouldGZipCompress: c.conf.CompressionFormat != nil && *c.conf.CompressionFormat == "GZIP",
+		shouldGZipCompress: c.compressionFormat != nil && *c.compressionFormat == "GZIP",
 		s3cli:              s3cli,
-		bufferSize:         size,
-		tickDuration:       time.Duration(dur) * time.Second,
+		bufferSize:         c.bufferSizeInMBs() * 1024 * 1024,
+		tickDuration:       time.Duration(c.bufferIntervalSeconds()) * time.Second,
 	}
 	return conf, nil
 }
