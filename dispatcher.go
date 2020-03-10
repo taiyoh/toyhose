@@ -26,6 +26,7 @@ type S3InjectedConf struct {
 	SizeInMBs         *int
 	IntervalInSeconds *int
 	EndPoint          *string
+	DisableBuffering  bool
 }
 
 // KinesisInjectedConf represents configuration of KinesisStream source.
