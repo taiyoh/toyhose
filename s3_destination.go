@@ -172,7 +172,7 @@ func (c *s3Destination) Run(ctx context.Context, conf s3StoreConfig, recordCh ch
 			c.captured = append(c.captured, r)
 			c.capturedSize += len(r.data)
 			log.Debug().Int("current", c.capturedSize).Int("limit", conf.bufferSize).Msgf("data captured. size: %d", len(r.data))
-			if c.capturedSize >= conf.bufferSize {
+			if c.injectedConf.DisableBuffering || c.capturedSize >= conf.bufferSize {
 				storeToS3(ctx, conf, time.Now(), c.captured)
 				tick = c.reset(conf.tickDuration)
 			}

@@ -39,6 +39,7 @@ func main() {
 			SizeInMBs:         conf.S3SizeInMBs,
 			IntervalInSeconds: conf.S3IntervalInSeconds,
 			EndPoint:          conf.S3EndPoint,
+			DisableBuffering:  conf.S3DisableBuffering,
 		},
 		KinesisInjectedConf: toyhose.KinesisInjectedConf{
 			Endpoint: conf.KinesisEndpoint,
