@@ -15,8 +15,6 @@ import (
 	"github.com/taiyoh/toyhose"
 )
 
-// LDFLAGS="-s -w -X main.version=$(GIT_VERSION) -X main.commit=$(CURRENT_REVISION) -X main.date=$(CURRENT_DATE)"
-
 var (
 	version string = "HEAD"
 	commit  string = "not-registered"
@@ -98,6 +96,7 @@ type toyhoseConfig struct {
 	SecretKey           string  `envconfig:"AWS_SECRET_ACCESS_KEY" required:"true"`
 	Region              string  `envconfig:"AWS_REGION"            default:"us-east-1"`
 	Port                int     `envconfig:"PORT"                  default:"4573"` // inspired by localstack
+	S3DisableBuffering  bool    `envconfig:"S3_DISABLE_BUFFERING"  default:"false"`
 	S3SizeInMBs         *int    `envconfig:"S3_BUFFERING_HINTS_SIZE_IN_MBS"`
 	S3IntervalInSeconds *int    `envconfig:"S3_BUFFERING_HINTS_INTERVAL_IN_SECONDS"`
 	S3EndPoint          *string `envconfig:"S3_ENDPOINT_URL"`
