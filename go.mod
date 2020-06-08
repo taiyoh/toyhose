@@ -3,7 +3,7 @@ module github.com/taiyoh/toyhose
 go 1.13
 
 require (
-	github.com/aws/aws-sdk-go v1.31.8
+	github.com/aws/aws-sdk-go v1.31.13
 	github.com/google/uuid v1.1.1
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/rs/zerolog v1.19.0
