@@ -143,10 +143,9 @@ func (c *s3Destination) Setup(ctx context.Context) (s3StoreConfig, error) {
 	return conf, nil
 }
 
-func (c *s3Destination) reset(dur time.Duration) <-chan time.Time {
+func (c *s3Destination) reset() {
 	c.captured = make([]*deliveryRecord, 0, 2048)
 	c.capturedSize = 0
-	return time.Tick(dur)
 }
 
 func (c *s3Destination) finalize(conf s3StoreConfig) {
@@ -156,7 +155,8 @@ func (c *s3Destination) finalize(conf s3StoreConfig) {
 }
 
 func (c *s3Destination) Run(ctx context.Context, conf s3StoreConfig, recordCh chan *deliveryRecord) {
-	tick := c.reset(conf.tickDuration)
+	c.reset()
+	ticker := time.NewTicker(conf.tickDuration)
 	for {
 		select {
 		case <-ctx.Done():
@@ -174,11 +174,12 @@ func (c *s3Destination) Run(ctx context.Context, conf s3StoreConfig, recordCh ch
 			log.Debug().Int("current", c.capturedSize).Int("limit", conf.bufferSize).Msgf("data captured. size: %d", len(r.data))
 			if c.injectedConf.DisableBuffering || c.capturedSize >= conf.bufferSize {
 				storeToS3(ctx, conf, time.Now(), c.captured)
-				tick = c.reset(conf.tickDuration)
+				c.reset()
+				ticker.Reset(conf.tickDuration)
 			}
-		case <-tick:
+		case <-ticker.C:
 			storeToS3(ctx, conf, time.Now(), c.captured)
-			tick = c.reset(conf.tickDuration)
+			c.reset()
 		}
 	}
 }
