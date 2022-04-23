@@ -46,7 +46,7 @@ func newKinesisConsumer(ctx context.Context, conf *aws.Config, sourceConf *fireh
 	if endpoint == nil {
 		return nil, awserr.New(firehose.ErrCodeInvalidArgumentException, "KINESIS_STREAM_ENDPOINT_URL not found", errors.New("endpoint not found"))
 	}
-	cli := kinesis.New(session.New(conf.WithEndpoint(*endpoint)))
+	cli := kinesis.New(session.Must(session.NewSession(conf.Copy().WithEndpoint(*endpoint))))
 	out, err := cli.DescribeStreamWithContext(ctx, &kinesis.DescribeStreamInput{
 		StreamName: &streamName,
 	})

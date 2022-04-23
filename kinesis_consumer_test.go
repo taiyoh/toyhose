@@ -70,7 +70,7 @@ func TestKinesisConsumer(t *testing.T) {
 			})
 		}
 	})
-	kinCli := kinesis.New(session.New(awsConf.WithEndpoint(*kiConf.Endpoint)))
+	kinCli := kinesis.New(session.Must(session.NewSession(awsConf.Copy().WithEndpoint(*kiConf.Endpoint))))
 	if _, err := kinCli.CreateStream(&kinesis.CreateStreamInput{
 		ShardCount: aws.Int64(1),
 		StreamName: &streamName,
@@ -112,8 +112,10 @@ func TestKinesisConsumer(t *testing.T) {
 
 func TestInputFromKinesis(t *testing.T) {
 	streamName := "input-from-stream-" + uuid.New().String()
-	s3cli := s3.New(session.New(awsConf.WithEndpoint(s3EndpointURL).WithS3ForcePathStyle(true).WithDisableSSL(true)))
-	kinCli := kinesis.New(session.New(awsConf.WithEndpoint(kinesisEndpointURL)))
+	s3cli := s3.New(session.Must(session.NewSession(
+		awsConf.Copy().WithEndpoint(s3EndpointURL).WithS3ForcePathStyle(true).WithDisableSSL(true))))
+	kinCli := kinesis.New(session.Must(session.NewSession(
+		awsConf.Copy().WithEndpoint(kinesisEndpointURL))))
 	closer, err := setupKinesisStream(kinCli, streamName, 1)
 	if err != nil {
 		t.Fatal(err)

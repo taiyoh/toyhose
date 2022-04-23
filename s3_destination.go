@@ -31,7 +31,8 @@ type s3Destination struct {
 }
 
 func s3Client(conf *aws.Config, endpoint string) *s3.S3 {
-	return s3.New(session.New(conf.WithEndpoint(endpoint).WithS3ForcePathStyle(true).WithDisableSSL(true)))
+	return s3.New(session.Must(session.NewSession(
+		conf.Copy().WithEndpoint(endpoint).WithS3ForcePathStyle(true).WithDisableSSL(true))))
 }
 
 type s3StoreConfig struct {

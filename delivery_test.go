@@ -44,7 +44,8 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 
 	streamName := "foobar"
 	prefix := "aaa-prefix"
-	fh := firehose.New(session.New(awsConf.WithEndpoint(testserver.URL)))
+	fh := firehose.New(session.Must(session.NewSession(
+		awsConf.Copy().WithEndpoint(testserver.URL))))
 	for _, bucket := range []string{"", "foobarbaz"} {
 		t.Run(fmt.Sprintf("bucket: [%s]", bucket), func(t *testing.T) {
 			out, err := fh.CreateDeliveryStream(&firehose.CreateDeliveryStreamInput{
