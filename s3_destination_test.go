@@ -165,6 +165,8 @@ func TestS3DestinationForExceededInterval(t *testing.T) {
 	}
 }
 
+var re = regexp.MustCompile("\\d$")
+
 func TestS3DestinationWithDisableBuffering(t *testing.T) {
 	s3cli := s3Client(awsConf, s3EndpointURL)
 	bucketName := "store-s3-test-" + uuid.New().String()
@@ -229,11 +231,7 @@ func TestS3DestinationWithDisableBuffering(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		matched, err := regexp.Match("\\d$", content)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !matched {
+		if !re.Match(content) {
 			t.Errorf("unexpected stored data captured: %v", string(content))
 		}
 	}
