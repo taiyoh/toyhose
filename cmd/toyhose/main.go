@@ -11,7 +11,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/kelseyhightower/envconfig"
+	"github.com/caarlos0/env/v6"
 	"github.com/taiyoh/toyhose"
 )
 
@@ -26,8 +26,8 @@ func main() {
 	}
 	log := toyhose.Logger()
 
-	conf := &toyhoseConfig{}
-	if err := envconfig.Process("", conf); err != nil {
+	var conf toyhoseConfig
+	if err := env.Parse(&conf); err != nil {
 		log.Fatal().Err(err).Msg("invalid environment variables")
 	}
 	awsConf := aws.NewConfig().
@@ -93,13 +93,13 @@ func main() {
 }
 
 type toyhoseConfig struct {
-	AccessKeyID         string  `envconfig:"AWS_ACCESS_KEY_ID"     required:"true"`
-	SecretKey           string  `envconfig:"AWS_SECRET_ACCESS_KEY" required:"true"`
-	Region              string  `envconfig:"AWS_REGION"            default:"us-east-1"`
-	Port                int     `envconfig:"PORT"                  default:"4573"` // inspired by localstack
-	S3DisableBuffering  bool    `envconfig:"S3_DISABLE_BUFFERING"  default:"false"`
-	S3SizeInMBs         *int    `envconfig:"S3_BUFFERING_HINTS_SIZE_IN_MBS"`
-	S3IntervalInSeconds *int    `envconfig:"S3_BUFFERING_HINTS_INTERVAL_IN_SECONDS"`
-	S3EndPoint          *string `envconfig:"S3_ENDPOINT_URL"`
-	KinesisEndpoint     *string `envconfig:"KINESIS_STREAM_ENDPOINT_URL"`
+	AccessKeyID         string  `env:"AWS_ACCESS_KEY_ID,true"`
+	SecretKey           string  `env:"AWS_SECRET_ACCESS_KEY,true"`
+	Region              string  `env:"AWS_REGION"            envDefault:"us-east-1"`
+	Port                int     `env:"PORT"                  envDefault:"4573"` // inspired by localstack
+	S3DisableBuffering  bool    `env:"S3_DISABLE_BUFFERING"  envDefault:"false"`
+	S3SizeInMBs         *int    `env:"S3_BUFFERING_HINTS_SIZE_IN_MBS"`
+	S3IntervalInSeconds *int    `env:"S3_BUFFERING_HINTS_INTERVAL_IN_SECONDS"`
+	S3EndPoint          *string `env:"S3_ENDPOINT_URL"`
+	KinesisEndpoint     *string `env:"KINESIS_STREAM_ENDPOINT_URL"`
 }
