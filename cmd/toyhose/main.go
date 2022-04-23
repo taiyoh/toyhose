@@ -54,32 +54,20 @@ func main() {
 		Addr:    fmt.Sprintf(":%d", conf.Port),
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := signal.NotifyContext(context.Background(),
+		syscall.SIGTERM,
+		syscall.SIGINT,
+		os.Interrupt)
+
 	defer cancel()
 
 	go func() {
-		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh,
-			syscall.SIGTERM,
-			syscall.SIGINT,
-			os.Interrupt)
-		for {
-			select {
-			case <-ctx.Done():
-				sdCtx, sdCancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer sdCancel()
-				log.Info().Msgf("shutdown process...")
-				if err := srv.Shutdown(sdCtx); err != nil {
-					log.Error().Err(err).Msg("Shutdown process failed")
-				}
-				return
-			case c := <-sigCh:
-				log.Info().Interface("signal", c).Msgf("caught signal")
-				switch c {
-				case syscall.SIGTERM, syscall.SIGINT, os.Interrupt:
-					cancel()
-				}
-			}
+		<-ctx.Done()
+		sdCtx, sdCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer sdCancel()
+		log.Info().Msgf("shutdown process...")
+		if err := srv.Shutdown(sdCtx); err != nil {
+			log.Error().Err(err).Msg("Shutdown process failed")
 		}
 	}()
 
