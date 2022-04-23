@@ -16,11 +16,9 @@ import (
 func TestStoreToS3ForNoSuppliedData(t *testing.T) {
 	s3cli := s3Client(awsConf, s3EndpointURL)
 	bucketName := "store-s3-test-" + uuid.New().String()
-	closer, err := setupS3(s3cli, bucketName)
-	if err != nil {
+	if err := setupS3(t, s3cli, bucketName); err != nil {
 		t.Fatal(err)
 	}
-	defer closer()
 
 	r := s3StoreConfig{
 		deliveryName:       "foobar",
@@ -46,11 +44,9 @@ func TestStoreToS3ForNoSuppliedData(t *testing.T) {
 func TestStoreToS3ForRawData(t *testing.T) {
 	s3cli := s3Client(awsConf, s3EndpointURL)
 	bucketName := "store-s3-test-" + uuid.New().String()
-	closer, err := setupS3(s3cli, bucketName)
-	if err != nil {
+	if err := setupS3(t, s3cli, bucketName); err != nil {
 		t.Fatal(err)
 	}
-	defer closer()
 
 	r := s3StoreConfig{
 		deliveryName:       "foobar",
@@ -97,11 +93,9 @@ func TestStoreToS3ForRawData(t *testing.T) {
 func TestStoreToS3ForCompressedData(t *testing.T) {
 	s3cli := s3Client(awsConf, s3EndpointURL)
 	bucketName := "store-s3-test-" + uuid.New().String()
-	closer, err := setupS3(s3cli, bucketName)
-	if err != nil {
+	if err := setupS3(t, s3cli, bucketName); err != nil {
 		t.Fatal(err)
 	}
-	defer closer()
 
 	r := s3StoreConfig{
 		deliveryName:       "foobar",
