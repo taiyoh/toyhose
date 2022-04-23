@@ -57,7 +57,7 @@ func storeToS3(ctx context.Context, conf s3StoreConfig, ts time.Time, records []
 	if conf.shouldGZipCompress {
 		b := bytes.NewBuffer([]byte{})
 		w := gzip.NewWriter(b)
-		w.Write(data)
+		_, _ = w.Write(data)
 		w.Close()
 		seekable = b.Bytes()
 	} else {

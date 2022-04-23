@@ -70,7 +70,10 @@ func (d *Dispatcher) Dispatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	b := bytes.NewBuffer([]byte{})
-	io.Copy(b, r.Body)
+	if _, err := io.Copy(b, r.Body); err != nil {
+		outputForJSON(w, nil, err)
+		return
+	}
 	if err := verifyV4(d.conf, r, bytes.NewReader(b.Bytes())); err != nil {
 		outputForJSON(w, nil, err)
 		return
@@ -115,7 +118,9 @@ type outputSerializable interface {
 
 func outputForJSON(w http.ResponseWriter, out outputSerializable, err error) {
 	if err == nil {
-		json.NewEncoder(w).Encode(out)
+		if err := json.NewEncoder(w).Encode(out); err != nil {
+			log.Error().Err(err).Msg("failed to decode output json")
+		}
 		return
 	}
 	switch e := err.(type) {
@@ -133,7 +138,9 @@ func outputForJSON(w http.ResponseWriter, out outputSerializable, err error) {
 	default:
 		w.WriteHeader(http.StatusBadRequest)
 	}
-	json.NewEncoder(w).Encode(err)
+	if err2 := json.NewEncoder(w).Encode(err); err2 != nil {
+		log.Error().Err(err2).Msg("failed to decode output error json")
+	}
 }
 
 var errInvalidTargetHeader = errors.New("invalid X-Amz-Target")

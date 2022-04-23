@@ -70,7 +70,7 @@ func (p *deliveryStreamPool) Delete(arn string) *deliveryStream {
 }
 
 func (p *deliveryStreamPool) FindAllBySource(streamType string, from *string, limit *int64) ([]*deliveryStream, bool) {
-	var pickups []*deliveryStream
+	pickups := make([]*deliveryStream, 0, len(p.pool))
 	for _, ds := range p.pool {
 		if ds.deliveryStreamType != streamType {
 			continue
