@@ -51,6 +51,7 @@ func (s *DeliveryStreamService) Create(ctx context.Context, input []byte) (*fire
 		destDesc:           &firehose.DestinationDescription{},
 		createdAt:          time.Now(),
 	}
+	//nolint
 	if i.S3DestinationConfiguration != nil {
 		s3dest := &s3Destination{
 			deliveryName:      *i.DeliveryStreamName,
