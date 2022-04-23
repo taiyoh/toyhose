@@ -36,11 +36,9 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 	defer testserver.Close()
 
 	bucketName := "delivery-api-test-" + uuid.New().String()
-	closer, err := setupS3(s3cli, bucketName)
-	if err != nil {
+	if err := setupS3(t, s3cli, bucketName); err != nil {
 		t.Fatal(err)
 	}
-	defer closer()
 
 	streamName := "foobar"
 	prefix := "aaa-prefix"

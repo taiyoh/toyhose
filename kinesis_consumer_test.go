@@ -77,11 +77,11 @@ func TestKinesisConsumer(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		kinCli.DeleteStream(&kinesis.DeleteStreamInput{
+	t.Cleanup(func() {
+		_, _ = kinCli.DeleteStream(&kinesis.DeleteStreamInput{
 			StreamName: &streamName,
 		})
-	}()
+	})
 	t.Run("inactive to active", func(t *testing.T) {
 		cred, _ := awsConf.Credentials.Get()
 		fhConf := &firehose.KinesisStreamSourceConfiguration{
@@ -116,11 +116,9 @@ func TestInputFromKinesis(t *testing.T) {
 		awsConf.Copy().WithEndpoint(s3EndpointURL).WithS3ForcePathStyle(true).WithDisableSSL(true))))
 	kinCli := kinesis.New(session.Must(session.NewSession(
 		awsConf.Copy().WithEndpoint(kinesisEndpointURL))))
-	closer, err := setupKinesisStream(kinCli, streamName, 1)
-	if err != nil {
+	if err := setupKinesisStream(t, kinCli, streamName, 1); err != nil {
 		t.Fatal(err)
 	}
-	defer closer()
 	streamIsActive := false
 	for i := 0; i < 20 || !streamIsActive; i++ {
 		out, err := kinCli.DescribeStream(&kinesis.DescribeStreamInput{
@@ -137,11 +135,9 @@ func TestInputFromKinesis(t *testing.T) {
 	if !streamIsActive {
 		t.Fatal("stream is not activated")
 	}
-	s3Closer, err := setupS3(s3cli, streamName)
-	if err != nil {
+	if err := setupS3(t, s3cli, streamName); err != nil {
 		t.Fatal(err)
 	}
-	defer s3Closer()
 
 	cred, _ := awsConf.Credentials.Get()
 	svc := &DeliveryStreamService{

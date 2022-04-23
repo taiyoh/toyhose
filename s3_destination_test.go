@@ -18,11 +18,9 @@ import (
 func TestS3DestinationForExceededDataSize(t *testing.T) {
 	s3cli := s3Client(awsConf, s3EndpointURL)
 	bucketName := "store-s3-test-" + uuid.New().String()
-	closer, err := setupS3(s3cli, bucketName)
-	if err != nil {
+	if err := setupS3(t, s3cli, bucketName); err != nil {
 		t.Fatal(err)
 	}
-	defer closer()
 
 	ch := make(chan *deliveryRecord, 128)
 	dst := &s3Destination{
@@ -94,11 +92,9 @@ func TestS3DestinationForExceededDataSize(t *testing.T) {
 func TestS3DestinationForExceededInterval(t *testing.T) {
 	s3cli := s3Client(awsConf, s3EndpointURL)
 	bucketName := "store-s3-test-" + uuid.New().String()
-	closer, err := setupS3(s3cli, bucketName)
-	if err != nil {
+	if err := setupS3(t, s3cli, bucketName); err != nil {
 		t.Fatal(err)
 	}
-	defer closer()
 
 	ch := make(chan *deliveryRecord, 128)
 	dst := &s3Destination{
@@ -172,11 +168,9 @@ func TestS3DestinationForExceededInterval(t *testing.T) {
 func TestS3DestinationWithDisableBuffering(t *testing.T) {
 	s3cli := s3Client(awsConf, s3EndpointURL)
 	bucketName := "store-s3-test-" + uuid.New().String()
-	closer, err := setupS3(s3cli, bucketName)
-	if err != nil {
+	if err := setupS3(t, s3cli, bucketName); err != nil {
 		t.Fatal(err)
 	}
-	defer closer()
 
 	ch := make(chan *deliveryRecord, 128)
 	dst := &s3Destination{
