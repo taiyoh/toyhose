@@ -13,7 +13,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/kelseyhightower/envconfig"
+	"github.com/caarlos0/env/v6"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/taiyoh/toyhose"
@@ -22,8 +22,11 @@ import (
 func main() {
 	setupLogger()
 
-	conf := &toyhoseConfig{}
-	if err := envconfig.Process("", conf); err != nil {
+	var conf toyhoseConfig
+	if err := env.Parse(&conf); err != nil {
+		log.Fatal().Err(err).Msg("invalid environment variables")
+	}
+	if err := env.Parse(&conf.S3); err != nil {
 		log.Fatal().Err(err).Msg("invalid environment variables")
 	}
 	d := toyhose.NewDispatcher(&toyhose.DispatcherConfig{
@@ -79,10 +82,10 @@ func main() {
 
 type toyhoseConfig struct {
 	S3          toyhose.S3InjectedConf
-	AccessKeyID string `envconfig:"AWS_ACCESS_KEY_ID"     required:"true"`
-	SecretKey   string `envconfig:"AWS_SECRET_ACCESS_KEY" required:"true"`
-	Region      string `envconfig:"AWS_REGION"            default:"us-east-1"`
-	Port        int    `envconfig:"PORT"                  default:"4573"`
+	AccessKeyID string `env:"AWS_ACCESS_KEY_ID,true"`
+	SecretKey   string `env:"AWS_SECRET_ACCESS_KEY,true"`
+	Region      string `env:"AWS_REGION"            envDefault:"us-east-1"`
+	Port        int    `env:"PORT"                  envDefault:"4573"`
 }
 
 func setupLogger() {

@@ -22,9 +22,9 @@ type DispatcherConfig struct {
 
 // S3InjectedConf represents injection to S3 destination BufferingHints forcely.
 type S3InjectedConf struct {
-	SizeInMBs         *int    `envconfig:"S3_BUFFERING_HINTS_SIZE_IN_MBS"`
-	IntervalInSeconds *int    `envconfig:"S3_BUFFERING_HINTS_INTERVAL_IN_SECONDS"`
-	EndPoint          *string `envconfig:"S3_ENDPOINT_URL"`
+	SizeInMBs         *int    `env:"S3_BUFFERING_HINTS_SIZE_IN_MBS"`
+	IntervalInSeconds *int    `env:"S3_BUFFERING_HINTS_INTERVAL_IN_SECONDS"`
+	EndPoint          *string `env:"S3_ENDPOINT_URL"`
 }
 
 // NewDispatcher returns Dispatcher object.
