@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/firehose"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/firehose"
+	"github.com/aws/aws-sdk-go-v2/service/firehose/types"
+	"github.com/aws/smithy-go"
 )
 
 // DeliveryStreamService represents interface for operating DeliveryStream resources.
@@ -30,17 +31,14 @@ func (s *DeliveryStreamService) arnName(streamName string) string {
 func (s *DeliveryStreamService) Create(ctx context.Context, input []byte) (*firehose.CreateDeliveryStreamOutput, error) {
 	i := &firehose.CreateDeliveryStreamInput{}
 	if err := json.Unmarshal(input, i); err != nil {
-		return nil, awserr.NewUnmarshalError(err, "Unmarshal error", input)
-	}
-	if err := i.Validate(); err != nil {
-		return nil, err
+		return nil, &smithy.DeserializationError{Err: err}
 	}
 	arn := s.arnName(*i.DeliveryStreamName)
 	dsCtx, dsCancel := context.WithCancel(context.Background())
 	recordCh := make(chan *deliveryRecord, 128)
-	dsType := "DirectPut"
-	if i.DeliveryStreamType != nil {
-		dsType = *i.DeliveryStreamType
+	dsType := types.DeliveryStreamTypeDirectPut
+	if i.DeliveryStreamType != types.DeliveryStreamTypeDirectPut {
+		dsType = i.DeliveryStreamType
 	}
 	ds := &deliveryStream{
 		arn:                arn,
@@ -48,33 +46,35 @@ func (s *DeliveryStreamService) Create(ctx context.Context, input []byte) (*fire
 		deliveryStreamType: dsType,
 		recordCh:           recordCh,
 		closer:             dsCancel,
-		destDesc:           &firehose.DestinationDescription{},
+		destDesc:           types.DestinationDescription{},
 		createdAt:          time.Now(),
 	}
 	//nolint
-	if i.S3DestinationConfiguration != nil {
+	if i.ExtendedS3DestinationConfiguration != nil {
 		s3dest := &s3Destination{
 			deliveryName:      *i.DeliveryStreamName,
-			bucketARN:         *i.S3DestinationConfiguration.BucketARN,
-			bufferingHints:    i.S3DestinationConfiguration.BufferingHints,
-			compressionFormat: i.S3DestinationConfiguration.CompressionFormat,
-			errorOutputPrefix: i.S3DestinationConfiguration.ErrorOutputPrefix,
-			prefix:            i.S3DestinationConfiguration.Prefix,
+			bucketARN:         *i.ExtendedS3DestinationConfiguration.BucketARN,
+			bufferingHints:    i.ExtendedS3DestinationConfiguration.BufferingHints,
+			compressionFormat: i.ExtendedS3DestinationConfiguration.CompressionFormat,
+			errorOutputPrefix: i.ExtendedS3DestinationConfiguration.ErrorOutputPrefix,
+			prefix:            i.ExtendedS3DestinationConfiguration.Prefix,
 			injectedConf:      s.s3InjectedConf,
 			awsConf:           s.awsConf,
 		}
 		conf, err := s3dest.Setup(dsCtx)
 		if err != nil {
-			return nil, awserr.New(firehose.ErrCodeResourceNotFoundException, "invalid BucketName", err)
+			return nil, &types.InvalidArgumentException{
+				Message: aws.String(fmt.Sprintf("invalid BucketName: %v", err)),
+			}
 		}
-		ds.destDesc.S3DestinationDescription = &firehose.S3DestinationDescription{
-			BucketARN:               i.S3DestinationConfiguration.BucketARN,
-			BufferingHints:          i.S3DestinationConfiguration.BufferingHints,
-			CompressionFormat:       i.S3DestinationConfiguration.CompressionFormat,
-			EncryptionConfiguration: i.S3DestinationConfiguration.EncryptionConfiguration,
-			ErrorOutputPrefix:       i.S3DestinationConfiguration.ErrorOutputPrefix,
-			Prefix:                  i.S3DestinationConfiguration.Prefix,
-			RoleARN:                 i.S3DestinationConfiguration.RoleARN,
+		ds.destDesc.ExtendedS3DestinationDescription = &types.ExtendedS3DestinationDescription{
+			BucketARN:               i.ExtendedS3DestinationConfiguration.BucketARN,
+			BufferingHints:          i.ExtendedS3DestinationConfiguration.BufferingHints,
+			CompressionFormat:       i.ExtendedS3DestinationConfiguration.CompressionFormat,
+			EncryptionConfiguration: i.ExtendedS3DestinationConfiguration.EncryptionConfiguration,
+			ErrorOutputPrefix:       i.ExtendedS3DestinationConfiguration.ErrorOutputPrefix,
+			Prefix:                  i.ExtendedS3DestinationConfiguration.Prefix,
+			RoleARN:                 i.ExtendedS3DestinationConfiguration.RoleARN,
 		}
 		go s3dest.Run(dsCtx, conf, recordCh)
 	}
@@ -84,8 +84,8 @@ func (s *DeliveryStreamService) Create(ctx context.Context, input []byte) (*fire
 			ds.Close()
 			return nil, err
 		}
-		ds.sourceDesc = &firehose.SourceDescription{
-			KinesisStreamSourceDescription: &firehose.KinesisStreamSourceDescription{
+		ds.sourceDesc = &types.SourceDescription{
+			KinesisStreamSourceDescription: &types.KinesisStreamSourceDescription{
 				DeliveryStartTimestamp: aws.Time(ds.createdAt),
 				KinesisStreamARN:       i.KinesisStreamSourceConfiguration.KinesisStreamARN,
 				RoleARN:                i.KinesisStreamSourceConfiguration.RoleARN,
@@ -104,15 +104,14 @@ func (s *DeliveryStreamService) Create(ctx context.Context, input []byte) (*fire
 func (s *DeliveryStreamService) Delete(ctx context.Context, input []byte) (*firehose.DeleteDeliveryStreamOutput, error) {
 	i := &firehose.DeleteDeliveryStreamInput{}
 	if err := json.Unmarshal(input, i); err != nil {
-		return nil, awserr.NewUnmarshalError(err, "Unmarshal error", input)
-	}
-	if err := i.Validate(); err != nil {
-		return nil, err
+		return nil, &smithy.DeserializationError{Err: err}
 	}
 	arn := s.arnName(*i.DeliveryStreamName)
 	ds := s.pool.Delete(arn)
 	if ds == nil {
-		return nil, awserr.New(firehose.ErrCodeResourceNotFoundException, "DeliveryStream not found", fmt.Errorf("DeliveryStreamName: %s not found", *i.DeliveryStreamName))
+		return nil, &types.ResourceNotFoundException{
+			Message: aws.String(fmt.Sprintf("DeliveryStreamName: %s not found", *i.DeliveryStreamName)),
+		}
 	}
 	ds.Close()
 	return &firehose.DeleteDeliveryStreamOutput{}, nil
@@ -122,17 +121,16 @@ func (s *DeliveryStreamService) Delete(ctx context.Context, input []byte) (*fire
 func (s *DeliveryStreamService) Put(ctx context.Context, input []byte) (*firehose.PutRecordOutput, error) {
 	i := &firehose.PutRecordInput{}
 	if err := json.Unmarshal(input, i); err != nil {
-		return nil, awserr.NewUnmarshalError(err, "Unmarshal error", input)
-	}
-	if err := i.Validate(); err != nil {
-		return nil, err
+		return nil, &smithy.DeserializationError{Err: err}
 	}
 	ds := s.pool.Find(s.arnName(*i.DeliveryStreamName))
 	if ds == nil {
-		return nil, awserr.New(firehose.ErrCodeResourceNotFoundException, "DeliveryStream not found", fmt.Errorf("DeliveryStreamName: %s not found", *i.DeliveryStreamName))
+		return nil, &types.ResourceNotFoundException{
+			Message: aws.String(fmt.Sprintf("DeliveryStreamName: %s not found", *i.DeliveryStreamName)),
+		}
 	}
 	log.Debug().Str("delivery_stream", *i.DeliveryStreamName).Msg("processing PutRecord request")
-	recordIDs := putData(ds, []*firehose.Record{i.Record})
+	recordIDs := putData(ds, []types.Record{*i.Record})
 	output := &firehose.PutRecordOutput{
 		Encrypted: aws.Bool(false),
 		RecordId:  &recordIDs[0],
@@ -140,7 +138,7 @@ func (s *DeliveryStreamService) Put(ctx context.Context, input []byte) (*firehos
 	return output, nil
 }
 
-func putData(ds *deliveryStream, records []*firehose.Record) []string {
+func putData(ds *deliveryStream, records []types.Record) []string {
 	recordIDs := make([]string, 0, len(records))
 	for _, record := range records {
 		dst, err := base64.StdEncoding.DecodeString(string(record.Data))
@@ -158,23 +156,22 @@ func putData(ds *deliveryStream, records []*firehose.Record) []string {
 func (s *DeliveryStreamService) PutBatch(ctx context.Context, input []byte) (*firehose.PutRecordBatchOutput, error) {
 	i := &firehose.PutRecordBatchInput{}
 	if err := json.Unmarshal(input, i); err != nil {
-		return nil, awserr.NewUnmarshalError(err, "Unmarshal error", input)
-	}
-	if err := i.Validate(); err != nil {
-		return nil, err
+		return nil, &smithy.DeserializationError{Err: err}
 	}
 	ds := s.pool.Find(s.arnName(*i.DeliveryStreamName))
 	if ds == nil {
-		return nil, awserr.New(firehose.ErrCodeResourceNotFoundException, "DeliveryStream not found", fmt.Errorf("DeliveryStreamName: %s not found", *i.DeliveryStreamName))
+		return nil, &types.ResourceNotFoundException{
+			Message: aws.String(fmt.Sprintf("DeliveryStreamName: %s not found", *i.DeliveryStreamName)),
+		}
 	}
 	log.Debug().Str("delivery_stream", *i.DeliveryStreamName).Msgf("processing PutRecordBatch request for %d records", len(i.Records))
 	recordIDs := putData(ds, i.Records)
 	output := &firehose.PutRecordBatchOutput{
-		FailedPutCount: aws.Int64(0),
+		FailedPutCount: aws.Int32(0),
 		Encrypted:      aws.Bool(false),
 	}
 	for _, r := range recordIDs {
-		output.RequestResponses = append(output.RequestResponses, &firehose.PutRecordBatchResponseEntry{
+		output.RequestResponses = append(output.RequestResponses, types.PutRecordBatchResponseEntry{
 			RecordId: aws.String(r),
 		})
 	}
@@ -185,16 +182,12 @@ func (s *DeliveryStreamService) PutBatch(ctx context.Context, input []byte) (*fi
 func (s *DeliveryStreamService) Listing(ctx context.Context, input []byte) (*firehose.ListDeliveryStreamsOutput, error) {
 	i := &firehose.ListDeliveryStreamsInput{}
 	if err := json.Unmarshal(input, i); err != nil {
-		return nil, awserr.NewUnmarshalError(err, "Unmarshal error", input)
+		return nil, &smithy.DeserializationError{Err: err}
 	}
-	if err := i.Validate(); err != nil {
-		return nil, err
-	}
-
-	streams, hasNext := s.pool.FindAllBySource(*i.DeliveryStreamType, i.ExclusiveStartDeliveryStreamName, i.Limit)
-	responses := make([]*string, 0, len(streams))
+	streams, hasNext := s.pool.FindAllBySource(i.DeliveryStreamType, i.ExclusiveStartDeliveryStreamName, i.Limit)
+	responses := make([]string, 0, len(streams))
 	for _, ds := range streams {
-		responses = append(responses, &ds.deliveryStreamName)
+		responses = append(responses, ds.deliveryStreamName)
 	}
 
 	out := &firehose.ListDeliveryStreamsOutput{
@@ -209,24 +202,23 @@ func (s *DeliveryStreamService) Listing(ctx context.Context, input []byte) (*fir
 func (s *DeliveryStreamService) Describe(ctx context.Context, input []byte) (*firehose.DescribeDeliveryStreamOutput, error) {
 	i := &firehose.DescribeDeliveryStreamInput{}
 	if err := json.Unmarshal(input, i); err != nil {
-		return nil, awserr.NewUnmarshalError(err, "Unmarshal error", input)
-	}
-	if err := i.Validate(); err != nil {
-		return nil, err
+		return nil, &smithy.DeserializationError{Err: err}
 	}
 	ds := s.pool.Find(s.arnName(*i.DeliveryStreamName))
 	if ds == nil {
-		return nil, awserr.New(firehose.ErrCodeResourceNotFoundException, "DeliveryStream not found", fmt.Errorf("DeliveryStreamName: %s not found", *i.DeliveryStreamName))
+		return nil, &types.ResourceNotFoundException{
+			Message: aws.String(fmt.Sprintf("DeliveryStreamName: %s not found", *i.DeliveryStreamName)),
+		}
 	}
 
 	out := &firehose.DescribeDeliveryStreamOutput{
-		DeliveryStreamDescription: &firehose.DeliveryStreamDescription{
+		DeliveryStreamDescription: &types.DeliveryStreamDescription{
 			CreateTimestamp:      aws.Time(ds.createdAt),
 			DeliveryStreamARN:    &ds.arn,
-			DeliveryStreamStatus: aws.String("ACTIVE"),
+			DeliveryStreamStatus: types.DeliveryStreamStatusActive,
 			DeliveryStreamName:   &ds.deliveryStreamName,
-			DeliveryStreamType:   &ds.deliveryStreamType,
-			Destinations:         []*firehose.DestinationDescription{ds.destDesc},
+			DeliveryStreamType:   ds.deliveryStreamType,
+			Destinations:         []types.DestinationDescription{ds.destDesc},
 			Source:               ds.sourceDesc,
 			VersionId:            aws.String("1"),
 		},

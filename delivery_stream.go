@@ -6,18 +6,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/firehose"
+	"github.com/aws/aws-sdk-go-v2/service/firehose/types"
 	"github.com/google/uuid"
 )
 
 type deliveryStream struct {
 	arn                string
 	deliveryStreamName string
-	deliveryStreamType string
+	deliveryStreamType types.DeliveryStreamType
 	recordCh           chan *deliveryRecord
 	closer             context.CancelFunc
-	destDesc           *firehose.DestinationDescription
-	sourceDesc         *firehose.SourceDescription
+	destDesc           types.DestinationDescription
+	sourceDesc         *types.SourceDescription
 	createdAt          time.Time
 }
 
@@ -69,7 +69,7 @@ func (p *deliveryStreamPool) Delete(arn string) *deliveryStream {
 	return nil
 }
 
-func (p *deliveryStreamPool) FindAllBySource(streamType string, from *string, limit *int64) ([]*deliveryStream, bool) {
+func (p *deliveryStreamPool) FindAllBySource(streamType types.DeliveryStreamType, from *string, limit *int32) ([]*deliveryStream, bool) {
 	pickups := make([]*deliveryStream, 0, len(p.pool))
 	for _, ds := range p.pool {
 		if ds.deliveryStreamType != streamType {

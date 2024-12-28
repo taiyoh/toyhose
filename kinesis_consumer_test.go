@@ -3,18 +3,19 @@ package toyhose
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/firehose"
-	"github.com/aws/aws-sdk-go/service/kinesis"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/firehose"
+	fhtypes "github.com/aws/aws-sdk-go-v2/service/firehose/types"
+	"github.com/aws/aws-sdk-go-v2/service/kinesis"
+	kntypes "github.com/aws/aws-sdk-go-v2/service/kinesis/types"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
 )
 
@@ -26,31 +27,31 @@ func TestKinesisConsumer(t *testing.T) {
 	t.Run("ErrCodeInvalidArgumentException", func(t *testing.T) {
 		for _, tt := range [...]struct {
 			label  string
-			fhConf *firehose.KinesisStreamSourceConfiguration
+			fhConf *fhtypes.KinesisStreamSourceConfiguration
 			kiConf KinesisInjectedConf
 		}{
 			{
 				label:  "no arn supplied",
-				fhConf: &firehose.KinesisStreamSourceConfiguration{},
+				fhConf: &fhtypes.KinesisStreamSourceConfiguration{},
 				kiConf: kiConf,
 			},
 			{
 				label: "wrong arn",
-				fhConf: &firehose.KinesisStreamSourceConfiguration{
+				fhConf: &fhtypes.KinesisStreamSourceConfiguration{
 					KinesisStreamARN: aws.String(fmt.Sprintf("arn:aws:kinesas:region:XXXXXXXX:stream/%s", streamName)),
 				},
 				kiConf: kiConf,
 			},
 			{
 				label: "wrong account_id",
-				fhConf: &firehose.KinesisStreamSourceConfiguration{
+				fhConf: &fhtypes.KinesisStreamSourceConfiguration{
 					KinesisStreamARN: aws.String(fmt.Sprintf("arn:aws:kinesis:region:foobarbaz:stream/%s", streamName)),
 				},
 				kiConf: kiConf,
 			},
 			{
 				label: "no endpoint supplied",
-				fhConf: &firehose.KinesisStreamSourceConfiguration{
+				fhConf: &fhtypes.KinesisStreamSourceConfiguration{
 					KinesisStreamARN: aws.String(fmt.Sprintf("arn:aws:kinesis:region:foobarbaz:stream/%s", streamName)),
 				},
 			},
@@ -60,32 +61,31 @@ func TestKinesisConsumer(t *testing.T) {
 				if consumer != nil {
 					t.Fatalf("%#v", consumer)
 				}
-				ae, ok := err.(awserr.Error)
-				if !ok {
+				var ae *fhtypes.InvalidArgumentException
+				if !errors.As(err, &ae) {
 					t.Error(err)
-				}
-				if ae.Code() != firehose.ErrCodeInvalidArgumentException {
-					t.Error(ae)
 				}
 			})
 		}
 	})
-	kinCli := kinesis.New(session.Must(session.NewSession(awsConf.Copy().WithEndpoint(*kiConf.Endpoint))))
-	if _, err := kinCli.CreateStream(&kinesis.CreateStreamInput{
-		ShardCount: aws.Int64(1),
+	kinCli := kinesis.NewFromConfig(*awsConf, func(o *kinesis.Options) {
+		o.BaseEndpoint = kiConf.Endpoint
+	})
+	if _, err := kinCli.CreateStream(context.Background(), &kinesis.CreateStreamInput{
+		ShardCount: aws.Int32(1),
 		StreamName: &streamName,
 	}); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		_, _ = kinCli.DeleteStream(&kinesis.DeleteStreamInput{
+		_, _ = kinCli.DeleteStream(context.Background(), &kinesis.DeleteStreamInput{
 			StreamName: &streamName,
 		})
 	})
 	t.Run("inactive to active", func(t *testing.T) {
-		cred, _ := awsConf.Credentials.Get()
-		fhConf := &firehose.KinesisStreamSourceConfiguration{
-			KinesisStreamARN: aws.String(fmt.Sprintf("arn:aws:kinesis:%s:%s:stream/%s", *awsConf.Region, cred.AccessKeyID, streamName)),
+		cred, _ := awsConf.Credentials.Retrieve(context.Background())
+		fhConf := &fhtypes.KinesisStreamSourceConfiguration{
+			KinesisStreamARN: aws.String(fmt.Sprintf("arn:aws:kinesis:%s:%s:stream/%s", awsConf.Region, cred.AccessKeyID, streamName)),
 		}
 		var consumer *kinesisConsumer
 		var err error
@@ -95,11 +95,9 @@ func TestKinesisConsumer(t *testing.T) {
 				break
 			}
 			if err != nil {
-				switch ae, ok := err.(awserr.Error); {
-				case !ok:
-					t.Error(ae)
-				case ae.Code() != firehose.ErrCodeServiceUnavailableException:
-					t.Error(ae)
+				var ae *fhtypes.InvalidArgumentException
+				if !errors.As(err, &ae) {
+					t.Error(err)
 				}
 			}
 			time.Sleep(50 * time.Millisecond)
@@ -112,24 +110,26 @@ func TestKinesisConsumer(t *testing.T) {
 
 func TestInputFromKinesis(t *testing.T) {
 	streamName := "input-from-stream-" + uuid.New().String()
-	s3cli := s3.New(session.Must(session.NewSession(
-		awsConf.Copy().WithEndpoint(s3EndpointURL).WithS3ForcePathStyle(true).WithDisableSSL(true))))
-	kinCli := kinesis.New(session.Must(session.NewSession(
-		awsConf.Copy().WithEndpoint(kinesisEndpointURL))))
+	s3cli := s3.NewFromConfig(*awsConf, func(o *s3.Options) {
+		o.BaseEndpoint = &s3EndpointURL
+		o.UsePathStyle = true
+		// o.DisableSSL = true
+	})
+	kinCli := kinesis.NewFromConfig(*awsConf, func(o *kinesis.Options) {
+		o.BaseEndpoint = &kinesisEndpointURL
+	})
 	if err := setupKinesisStream(t, kinCli, streamName, 1); err != nil {
 		t.Fatal(err)
 	}
 	streamIsActive := false
 	for i := 0; i < 20 || !streamIsActive; i++ {
-		out, err := kinCli.DescribeStream(&kinesis.DescribeStreamInput{
+		out, err := kinCli.DescribeStream(context.Background(), &kinesis.DescribeStreamInput{
 			StreamName: &streamName,
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if *out.StreamDescription.StreamStatus == "ACTIVE" {
-			streamIsActive = true
-		}
+		streamIsActive = out.StreamDescription.StreamStatus == kntypes.StreamStatusActive
 		time.Sleep(50 * time.Millisecond)
 	}
 	if !streamIsActive {
@@ -139,10 +139,10 @@ func TestInputFromKinesis(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cred, _ := awsConf.Credentials.Get()
+	cred, _ := awsConf.Credentials.Retrieve(context.Background())
 	svc := &DeliveryStreamService{
 		awsConf:   awsConf,
-		region:    *awsConf.Region,
+		region:    awsConf.Region,
 		accountID: cred.AccessKeyID,
 		s3InjectedConf: S3InjectedConf{
 			IntervalInSeconds: aws.Int(1),
@@ -157,18 +157,18 @@ func TestInputFromKinesis(t *testing.T) {
 	}
 	createInputBytes, _ := json.Marshal(&firehose.CreateDeliveryStreamInput{
 		DeliveryStreamName: &streamName,
-		DeliveryStreamType: aws.String("KinesisStreamAsSource"),
-		S3DestinationConfiguration: &firehose.S3DestinationConfiguration{
+		DeliveryStreamType: fhtypes.DeliveryStreamTypeDatabaseAsSource,
+		S3DestinationConfiguration: &fhtypes.S3DestinationConfiguration{
 			BucketARN: aws.String("arn:aws:s3:::" + streamName),
-			BufferingHints: &firehose.BufferingHints{
-				IntervalInSeconds: aws.Int64(60),
-				SizeInMBs:         aws.Int64(50),
+			BufferingHints: &fhtypes.BufferingHints{
+				IntervalInSeconds: aws.Int32(60),
+				SizeInMBs:         aws.Int32(50),
 			},
-			CompressionFormat: aws.String("UNCOMPRESSED"),
+			CompressionFormat: fhtypes.CompressionFormatUncompressed,
 			RoleARN:           aws.String("arn:aws:iam:role:foo-bar"),
 		},
-		KinesisStreamSourceConfiguration: &firehose.KinesisStreamSourceConfiguration{
-			KinesisStreamARN: aws.String(fmt.Sprintf("arn:aws:kinesis:%s:%s:stream/%s", *awsConf.Region, cred.AccessKeyID, streamName)),
+		KinesisStreamSourceConfiguration: &fhtypes.KinesisStreamSourceConfiguration{
+			KinesisStreamARN: aws.String(fmt.Sprintf("arn:aws:kinesis:%s:%s:stream/%s", awsConf.Region, cred.AccessKeyID, streamName)),
 			RoleARN:          aws.String("arn:aws:iam:role:foo-bar"),
 		},
 	})
@@ -178,7 +178,7 @@ func TestInputFromKinesis(t *testing.T) {
 	}
 	deliveryStreamARN := *createOutput.DeliveryStreamARN
 
-	if _, err := kinCli.PutRecord(&kinesis.PutRecordInput{
+	if _, err := kinCli.PutRecord(context.Background(), &kinesis.PutRecordInput{
 		StreamName:   &streamName,
 		PartitionKey: aws.String("aaa"),
 		Data:         []byte("aaaaaaaaaaaaaaaiiiiiiiiiiiiiiii"),
@@ -189,7 +189,7 @@ func TestInputFromKinesis(t *testing.T) {
 	var captured []byte
 	for i := 0; i < 10; i++ {
 		time.Sleep(500 * time.Millisecond)
-		out, err := s3cli.ListObjects(&s3.ListObjectsInput{Bucket: &streamName})
+		out, err := s3cli.ListObjects(context.Background(), &s3.ListObjectsInput{Bucket: &streamName})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -197,14 +197,14 @@ func TestInputFromKinesis(t *testing.T) {
 			continue
 		}
 		for _, o := range out.Contents {
-			obj, err := s3cli.GetObject(&s3.GetObjectInput{
+			obj, err := s3cli.GetObject(context.Background(), &s3.GetObjectInput{
 				Bucket: &streamName,
 				Key:    o.Key,
 			})
 			if err != nil {
 				t.Fatal(err)
 			}
-			b, _ := ioutil.ReadAll(obj.Body)
+			b, _ := io.ReadAll(obj.Body)
 			captured = append(captured, b...)
 		}
 		if len(captured) > 0 {

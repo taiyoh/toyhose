@@ -2,15 +2,17 @@ package toyhose
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/firehose"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/firehose/types"
+	"github.com/aws/smithy-go"
 	"github.com/google/uuid"
 )
 
@@ -35,12 +37,12 @@ type KinesisInjectedConf struct {
 }
 
 // NewDispatcher returns Dispatcher object.
-func NewDispatcher(conf *DispatcherConfig) *Dispatcher {
-	cred, _ := conf.AWSConf.Credentials.Get()
+func NewDispatcher(ctx context.Context, conf *DispatcherConfig) *Dispatcher {
+	cred, _ := conf.AWSConf.Credentials.Retrieve(ctx)
 	return &Dispatcher{
 		conf:                conf.AWSConf,
 		accountID:           cred.AccessKeyID,
-		region:              *conf.AWSConf.Region,
+		region:              conf.AWSConf.Region,
 		s3InjectedConf:      conf.S3InjectedConf,
 		kinesisInjectedConf: conf.KinesisInjectedConf,
 		pool: &deliveryStreamPool{
@@ -74,7 +76,7 @@ func (d *Dispatcher) Dispatch(w http.ResponseWriter, r *http.Request) {
 		outputForJSON(w, nil, err)
 		return
 	}
-	if err := verifyV4(d.conf, r, bytes.NewReader(b.Bytes())); err != nil {
+	if err := verifyV4(d.conf, r, b.Bytes()); err != nil {
 		outputForJSON(w, nil, err)
 		return
 	}
@@ -106,7 +108,11 @@ func (d *Dispatcher) Dispatch(w http.ResponseWriter, r *http.Request) {
 		out, err := svc.Describe(r.Context(), b.Bytes())
 		outputForJSON(w, out, err)
 	default:
-		err := awserr.New("InvalidAction", "invalid action received", errInvalidTargetHeader)
+		err := &smithy.OperationError{
+			ServiceID:     "Firehose",
+			OperationName: op,
+			Err:           fmt.Errorf("invalid action received"),
+		}
 		outputForJSON(w, nil, err)
 	}
 }
@@ -116,26 +122,20 @@ type outputSerializable interface {
 	GoString() string
 }
 
-func outputForJSON(w http.ResponseWriter, out outputSerializable, err error) {
+func outputForJSON(w http.ResponseWriter, out any, err error) {
 	if err == nil {
 		if err := json.NewEncoder(w).Encode(out); err != nil {
 			log.Error().Err(err).Msg("failed to decode output json")
 		}
 		return
 	}
-	switch e := err.(type) {
-	case awserr.Error:
-		switch e.Code() {
-		case "InternalFailure":
-			w.WriteHeader(http.StatusInternalServerError)
-		case firehose.ErrCodeServiceUnavailableException:
-			w.WriteHeader(http.StatusServiceUnavailable)
-		case firehose.ErrCodeResourceNotFoundException:
-			w.WriteHeader(http.StatusNotFound)
-		default:
-			w.WriteHeader(http.StatusBadRequest)
-		}
-	default:
+	var e1 *types.ServiceUnavailableException
+	var e2 *types.ResourceNotFoundException
+	if errors.As(err, &e1) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	} else if errors.As(err, &e2) {
+		w.WriteHeader(http.StatusNotFound)
+	} else {
 		w.WriteHeader(http.StatusBadRequest)
 	}
 	if err2 := json.NewEncoder(w).Encode(err); err2 != nil {
@@ -149,7 +149,11 @@ func parseTarget(tgt string) (string, error) {
 	// ex) Firehose_20150804.CreateDeliveryStream
 	parts := strings.Split(tgt, ".")
 	if len(parts) != 2 || !strings.HasPrefix(parts[0], "Firehose_") {
-		return "", awserr.New("MissingAction", "no action received", errInvalidTargetHeader)
+		return "", &smithy.GenericAPIError{
+			Code:    "MissingAction",
+			Message: "no action received",
+			Fault:   smithy.FaultClient,
+		}
 	}
 	return parts[1], nil
 }

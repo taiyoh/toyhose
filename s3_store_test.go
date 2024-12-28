@@ -4,12 +4,12 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"regexp"
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
 )
 
@@ -30,7 +30,7 @@ func TestStoreToS3ForNoSuppliedData(t *testing.T) {
 	ts := time.Now()
 
 	storeToS3(context.Background(), r, ts, nil)
-	out, err := s3cli.ListObjects(&s3.ListObjectsInput{
+	out, err := s3cli.ListObjects(context.Background(), &s3.ListObjectsInput{
 		Bucket: &bucketName,
 	})
 	if err != nil {
@@ -48,6 +48,8 @@ func TestStoreToS3ForRawData(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	ctx := context.Background()
+
 	r := s3StoreConfig{
 		deliveryName:       "foobar",
 		bucketName:         bucketName,
@@ -60,7 +62,7 @@ func TestStoreToS3ForRawData(t *testing.T) {
 	content := "!!!!!!!!!!!!!!!!!!!!!!!!"
 	storeToS3(context.Background(), r, ts, []*deliveryRecord{{id: "foobar", data: []byte(content)}})
 	prefix := ts.Format("2006/01/02/15/")
-	out, err := s3cli.ListObjects(&s3.ListObjectsInput{
+	out, err := s3cli.ListObjects(ctx, &s3.ListObjectsInput{
 		Bucket: &bucketName,
 		Prefix: &prefix,
 	})
@@ -74,14 +76,14 @@ func TestStoreToS3ForRawData(t *testing.T) {
 	if m, _ := regexp.MatchString(fmt.Sprintf("%sfoobar-1-%s-.+", prefix, ts.Format("2006-01-02-15-04-05")), *obj.Key); !m {
 		t.Errorf("wrong key name supplied: %v", *obj.Key)
 	}
-	c, err := s3cli.GetObject(&s3.GetObjectInput{
+	c, err := s3cli.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: &bucketName,
 		Key:    obj.Key,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	received, err := ioutil.ReadAll(c.Body)
+	received, err := io.ReadAll(c.Body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,6 +99,8 @@ func TestStoreToS3ForCompressedData(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	ctx := context.Background()
+
 	r := s3StoreConfig{
 		deliveryName:       "foobar",
 		bucketName:         bucketName,
@@ -110,7 +114,7 @@ func TestStoreToS3ForCompressedData(t *testing.T) {
 	r.shouldGZipCompress = true
 	storeToS3(context.Background(), r, ts, []*deliveryRecord{{id: "foobar", data: []byte(content)}})
 	prefix := ts.Format("2006/01/02/15/")
-	out, err := s3cli.ListObjects(&s3.ListObjectsInput{
+	out, err := s3cli.ListObjects(ctx, &s3.ListObjectsInput{
 		Bucket: &bucketName,
 		Prefix: &prefix,
 	})
@@ -124,7 +128,7 @@ func TestStoreToS3ForCompressedData(t *testing.T) {
 	if m, _ := regexp.MatchString(fmt.Sprintf("^%sfoobar-1-%s-.+$", prefix, ts.Format("2006-01-02-15-04-05")), *obj.Key); !m {
 		t.Errorf("wrong key name supplied: %v", *obj.Key)
 	}
-	c, err := s3cli.GetObject(&s3.GetObjectInput{
+	c, err := s3cli.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: &bucketName,
 		Key:    obj.Key,
 	})
@@ -135,7 +139,7 @@ func TestStoreToS3ForCompressedData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	received, err := ioutil.ReadAll(reader)
+	received, err := io.ReadAll(reader)
 	if err != nil {
 		t.Fatal(err)
 	}

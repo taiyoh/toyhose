@@ -3,15 +3,17 @@ package toyhose
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
+	"os"
 	"path/filepath"
 	"regexp"
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/firehose"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	fhtypes "github.com/aws/aws-sdk-go-v2/service/firehose/types"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/google/uuid"
 )
 
@@ -31,9 +33,9 @@ func TestS3DestinationForExceededDataSize(t *testing.T) {
 		deliveryName: "foobar",
 		prefix:       aws.String("aaa"),
 		bucketARN:    "arn:aws:s3:::" + bucketName,
-		bufferingHints: &firehose.BufferingHints{
-			SizeInMBs:         aws.Int64(1),
-			IntervalInSeconds: aws.Int64(60),
+		bufferingHints: &fhtypes.BufferingHints{
+			SizeInMBs:         aws.Int32(1),
+			IntervalInSeconds: aws.Int32(60),
 		},
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -44,7 +46,7 @@ func TestS3DestinationForExceededDataSize(t *testing.T) {
 	}
 	go dst.Run(ctx, conf, ch)
 
-	b, err := ioutil.ReadFile(filepath.Join("testdata", "dummy.json"))
+	b, err := os.ReadFile(filepath.Join("testdata", "dummy.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,9 +57,9 @@ func TestS3DestinationForExceededDataSize(t *testing.T) {
 		ch <- newDeliveryRecord(b)
 		sent += len(b)
 	}
-	var obj *s3.Object
+	var obj *s3types.Object
 	for i := 0; i < 20; i++ {
-		out, err := s3cli.ListObjects(&s3.ListObjectsInput{
+		out, err := s3cli.ListObjects(context.Background(), &s3.ListObjectsInput{
 			Bucket: &bucketName,
 			Prefix: dst.prefix,
 		})
@@ -65,7 +67,7 @@ func TestS3DestinationForExceededDataSize(t *testing.T) {
 			t.Fatal(err)
 		}
 		if len(out.Contents) == 1 {
-			obj = out.Contents[0]
+			obj = &out.Contents[0]
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
@@ -73,14 +75,14 @@ func TestS3DestinationForExceededDataSize(t *testing.T) {
 	if obj == nil {
 		t.Fatal("s3 object not found")
 	}
-	out, err := s3cli.GetObject(&s3.GetObjectInput{
+	out, err := s3cli.GetObject(context.Background(), &s3.GetObjectInput{
 		Bucket: &bucketName,
 		Key:    obj.Key,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	content, err := ioutil.ReadAll(out.Body)
+	content, err := io.ReadAll(out.Body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,9 +106,9 @@ func TestS3DestinationForExceededInterval(t *testing.T) {
 		},
 		deliveryName: "foobar",
 		bucketARN:    "arn:aws:s3:::" + bucketName,
-		bufferingHints: &firehose.BufferingHints{
-			SizeInMBs:         aws.Int64(50),
-			IntervalInSeconds: aws.Int64(1), // for test use only
+		bufferingHints: &fhtypes.BufferingHints{
+			SizeInMBs:         aws.Int32(50),
+			IntervalInSeconds: aws.Int32(1), // for test use only
 		},
 		prefix: aws.String("bbb"),
 	}
@@ -118,7 +120,7 @@ func TestS3DestinationForExceededInterval(t *testing.T) {
 	}
 	go dst.Run(ctx, conf, ch)
 
-	b, err := ioutil.ReadFile(filepath.Join("testdata", "dummy.json"))
+	b, err := os.ReadFile(filepath.Join("testdata", "dummy.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,9 +129,9 @@ func TestS3DestinationForExceededInterval(t *testing.T) {
 		ch <- newDeliveryRecord(b)
 		time.Sleep(800 * time.Millisecond)
 	}
-	var objects []*s3.Object
+	var objects []s3types.Object
 	for i := 0; i < 50; i++ {
-		out, err := s3cli.ListObjects(&s3.ListObjectsInput{
+		out, err := s3cli.ListObjects(context.Background(), &s3.ListObjectsInput{
 			Bucket: &bucketName,
 			Prefix: dst.prefix,
 		})
@@ -146,14 +148,14 @@ func TestS3DestinationForExceededInterval(t *testing.T) {
 		t.Fatal("s3 objects not found")
 	}
 	for _, c := range objects {
-		out, err := s3cli.GetObject(&s3.GetObjectInput{
+		out, err := s3cli.GetObject(context.Background(), &s3.GetObjectInput{
 			Bucket: &bucketName,
 			Key:    c.Key,
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
-		content, err := ioutil.ReadAll(out.Body)
+		content, err := io.ReadAll(out.Body)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -193,7 +195,7 @@ func TestS3DestinationWithDisableBuffering(t *testing.T) {
 	}
 	go dst.Run(ctx, conf, ch)
 
-	b, err := ioutil.ReadFile(filepath.Join("testdata", "dummy.json"))
+	b, err := os.ReadFile(filepath.Join("testdata", "dummy.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,9 +203,9 @@ func TestS3DestinationWithDisableBuffering(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		ch <- newDeliveryRecord(append(b, []byte(fmt.Sprint(i))...))
 	}
-	var objects []*s3.Object
+	var objects []s3types.Object
 	for i := 0; i < 20; i++ {
-		out, err := s3cli.ListObjects(&s3.ListObjectsInput{
+		out, err := s3cli.ListObjects(context.Background(), &s3.ListObjectsInput{
 			Bucket: &bucketName,
 			Prefix: dst.prefix,
 		})
@@ -220,14 +222,14 @@ func TestS3DestinationWithDisableBuffering(t *testing.T) {
 		t.Fatal("s3 objects not found")
 	}
 	for _, obj := range objects {
-		out, err := s3cli.GetObject(&s3.GetObjectInput{
+		out, err := s3cli.GetObject(context.Background(), &s3.GetObjectInput{
 			Bucket: &bucketName,
 			Key:    obj.Key,
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
-		content, err := ioutil.ReadAll(out.Body)
+		content, err := io.ReadAll(out.Body)
 		if err != nil {
 			t.Fatal(err)
 		}

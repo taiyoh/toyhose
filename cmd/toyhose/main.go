@@ -9,8 +9,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/caarlos0/env/v6"
 	"github.com/taiyoh/toyhose"
 )
@@ -30,11 +30,14 @@ func main() {
 	if err := env.Parse(&conf); err != nil {
 		log.Fatal().Err(err).Msg("invalid environment variables")
 	}
-	awsConf := aws.NewConfig().
-		WithRegion(conf.Region).
-		WithCredentials(credentials.NewStaticCredentials(conf.AccessKeyID, conf.SecretKey, ""))
-	d := toyhose.NewDispatcher(&toyhose.DispatcherConfig{
-		AWSConf: awsConf,
+	awsConf, err := config.LoadDefaultConfig(context.Background(),
+		config.WithDefaultRegion(conf.Region),
+		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(conf.AccessKeyID, conf.SecretKey, "")))
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to load AWS config")
+	}
+	d := toyhose.NewDispatcher(context.Background(), &toyhose.DispatcherConfig{
+		AWSConf: &awsConf,
 		S3InjectedConf: toyhose.S3InjectedConf{
 			SizeInMBs:         conf.S3SizeInMBs,
 			IntervalInSeconds: conf.S3IntervalInSeconds,
