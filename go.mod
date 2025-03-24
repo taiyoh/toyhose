@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-sdk-go v1.55.5
 	github.com/caarlos0/env/v6 v6.10.1
 	github.com/google/uuid v1.6.0
-	github.com/rs/zerolog v1.33.0
+	github.com/rs/zerolog v1.34.0
 	github.com/vjeantet/jodaTime v1.0.0
 )
 
