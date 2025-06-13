@@ -2,6 +2,13 @@
 
 This document outlines the rationale behind the selection of key external libraries in the `toyhose` project.
 
+### `aws/aws-sdk-go-v2`
+
+- **Purpose**: The official AWS SDK for the Go programming language.
+- **Rationale**:
+  - **Necessity**: As `toyhose` is an emulation of an AWS service (Kinesis Firehose), the SDK is essential for using official data types and interacting with other AWS services (like S3 and Kinesis) during integration testing.
+  - **Migration to v2**: The project was migrated from v1 to v2 because v1 is no longer actively maintained. V2 offers improved performance, a more modular architecture, and modern Go features like `context.Context` integration and improved error handling. The migration process is detailed in `aws_sdk_v2_migration.md`.
+
 ### `rs/zerolog`
 
 - **Purpose**: Structured, high-performance logging.
