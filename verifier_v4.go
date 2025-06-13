@@ -1,39 +1,63 @@
 package toyhose
 
 import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	v4 "github.com/aws/aws-sdk-go/aws/signer/v4"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 )
 
 var (
 	errInvalidSignature = errors.New("invalid signature")
 )
 
-func verifyV4(c *aws.Config, req *http.Request, body io.ReadSeeker) error {
+func verifyV4(ctx context.Context, c aws.Config, req *http.Request, body []byte) error {
 	refAuth := req.Header.Get("Authorization")
-	sigHeaders := strings.Split(refAuth, ", ")[1]
-	sigHeaderVal := strings.Split(sigHeaders, "=")[1]
 	ts, _ := time.Parse("20060102T150405Z", req.Header.Get("X-Amz-Date"))
-	copiedReq := req.Clone(req.Context())
-	remainHeaders := http.Header{}
-	for _, key := range strings.Split(sigHeaderVal, ";") {
-		if val := req.Header.Get(key); val != "" {
-			remainHeaders.Set(key, val)
+
+	copiedReq := req.Clone(ctx)
+	copiedReq.Body = io.NopCloser(bytes.NewReader(body))
+
+	// v1の挙動を模倣: 署名に含まれるヘッダーのみをリクエストに含める
+	if authParts := strings.Split(refAuth, ", "); len(authParts) > 1 {
+		if sigParts := strings.Split(authParts[1], "="); len(sigParts) > 1 {
+			signedHeaders := strings.Split(sigParts[1], ";")
+			newHeader := http.Header{}
+			for _, h := range signedHeaders {
+				if val := req.Header.Get(h); val != "" {
+					newHeader.Set(h, val)
+				}
+			}
+			// 必須ヘッダーを追加
+			newHeader.Set("X-Amz-Date", req.Header.Get("X-Amz-Date"))
+			copiedReq.Header = newHeader
 		}
 	}
-	copiedReq.Header = remainHeaders
-	if _, err := v4.NewSigner(c.Credentials).Sign(copiedReq, body, "firehose", *c.Region, ts); err != nil {
-		return awserr.New("IncompleteSignature", "failed to build sign", err)
+
+	hasher := sha256.New()
+	hasher.Write(body)
+	payloadHash := hex.EncodeToString(hasher.Sum(nil))
+
+	signer := v4.NewSigner()
+	creds, err := c.Credentials.Retrieve(ctx)
+	if err != nil {
+		return err
 	}
+
+	if err := signer.SignHTTP(ctx, creds, copiedReq, payloadHash, "firehose", c.Region, ts); err != nil {
+		return err
+	}
+
 	if a := copiedReq.Header.Get("Authorization"); a != refAuth {
-		return awserr.New("AccessDeniedException", "signature mismatched", errInvalidSignature)
+		return errInvalidSignature
 	}
 	return nil
 }

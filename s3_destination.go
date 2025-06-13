@@ -9,30 +9,30 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/firehose"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/firehose/types"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
 )
 
 type s3Destination struct {
 	deliveryName      string
 	bucketARN         string
-	bufferingHints    *firehose.BufferingHints
-	compressionFormat *string
+	bufferingHints    *types.BufferingHints
+	compressionFormat types.CompressionFormat
 	errorOutputPrefix *string
 	prefix            *string
 	captured          []*deliveryRecord
-	awsConf           *aws.Config
+	awsConf           aws.Config
 	injectedConf      S3InjectedConf
 	capturedSize      int
 }
 
-func s3Client(conf *aws.Config, endpoint string) *s3.S3 {
-	return s3.New(session.Must(session.NewSession(
-		conf.Copy().WithEndpoint(endpoint).WithS3ForcePathStyle(true).WithDisableSSL(true))))
+func s3Client(conf aws.Config, endpoint string) *s3.Client {
+	return s3.NewFromConfig(conf, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String(endpoint)
+		o.UsePathStyle = true
+	})
 }
 
 type s3StoreConfig struct {
@@ -40,7 +40,7 @@ type s3StoreConfig struct {
 	bucketName         string
 	prefix             string
 	shouldGZipCompress bool
-	s3cli              *s3.S3
+	s3cli              *s3.Client
 	bufferSize         int // byte
 	tickDuration       time.Duration
 }
@@ -73,46 +73,37 @@ func storeToS3(ctx context.Context, conf s3StoreConfig, ts time.Time, records []
 	log.Debug().Str("key", key).Int("size", len(seekable)).Msg("PutObject start")
 	cli := conf.s3cli
 	for i := 0; i < 30; i++ {
-		switch _, err := cli.PutObjectWithContext(ctx, input); err {
-		case nil:
+		if _, err := cli.PutObject(ctx, input); err == nil {
 			log.Debug().Str("key", key).Msgf("PutObject succeeded. trial count: %d", i+1)
 			return
-		case context.Canceled:
-			log.Debug().Str("key", key).Msg("context.Canceled")
-			return
-		default:
-			if baseErr, ok := err.(awserr.Error); ok && baseErr.Code() == "RequestCanceled" {
-				log.Debug().Str("key", key).Err(baseErr).Msg("awserr.RequestCanceled")
-				return
-			}
-			time.Sleep(100 * time.Millisecond)
 		}
+		time.Sleep(100 * time.Millisecond)
 	}
 	log.Debug().Str("key", key).Msg("PutObject failed")
 }
 
-func (c *s3Destination) bufferSizeInMBs() int {
+func (c *s3Destination) bufferSizeInMBs() int32 {
 	// https://docs.aws.amazon.com/firehose/latest/APIReference/API_BufferingHints.html
 	// > The default value is 5.
-	size := int(5)
+	size := int32(5)
 	if c.bufferingHints != nil && c.bufferingHints.SizeInMBs != nil {
-		size = int(*c.bufferingHints.SizeInMBs)
+		size = *c.bufferingHints.SizeInMBs
 	}
 	if c.injectedConf.SizeInMBs != nil {
-		size = *c.injectedConf.SizeInMBs
+		size = int32(*c.injectedConf.SizeInMBs)
 	}
 	return size
 }
 
-func (c *s3Destination) bufferIntervalSeconds() int64 {
+func (c *s3Destination) bufferIntervalSeconds() int32 {
 	// https://docs.aws.amazon.com/firehose/latest/APIReference/API_BufferingHints.html
 	// > The default value is 300.
-	dur := int64(300)
+	dur := int32(300)
 	if c.bufferingHints != nil && c.bufferingHints.IntervalInSeconds != nil {
 		dur = *c.bufferingHints.IntervalInSeconds
 	}
 	if c.injectedConf.IntervalInSeconds != nil {
-		dur = int64(*c.injectedConf.IntervalInSeconds)
+		dur = int32(*c.injectedConf.IntervalInSeconds)
 	}
 	return dur
 }
@@ -123,7 +114,7 @@ func (c *s3Destination) Setup(ctx context.Context) (s3StoreConfig, error) {
 	if bucketName == "" {
 		return s3StoreConfig{}, errors.New("required bucket_name")
 	}
-	if _, err := s3cli.HeadBucketWithContext(ctx, &s3.HeadBucketInput{
+	if _, err := s3cli.HeadBucket(ctx, &s3.HeadBucketInput{
 		Bucket: &bucketName,
 	}); err != nil {
 		return s3StoreConfig{}, err
@@ -136,9 +127,9 @@ func (c *s3Destination) Setup(ctx context.Context) (s3StoreConfig, error) {
 		deliveryName:       c.deliveryName,
 		bucketName:         bucketName,
 		prefix:             prefix,
-		shouldGZipCompress: c.compressionFormat != nil && *c.compressionFormat == "GZIP",
+		shouldGZipCompress: c.compressionFormat == types.CompressionFormatGzip,
 		s3cli:              s3cli,
-		bufferSize:         c.bufferSizeInMBs() * 1024 * 1024,
+		bufferSize:         int(c.bufferSizeInMBs()) * 1024 * 1024,
 		tickDuration:       time.Duration(c.bufferIntervalSeconds()) * time.Second,
 	}
 	return conf, nil

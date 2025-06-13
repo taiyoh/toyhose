@@ -1,26 +1,33 @@
 package toyhose
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/firehose"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/firehose"
+	fhtypes "github.com/aws/aws-sdk-go-v2/service/firehose/types"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/google/uuid"
 )
 
 func TestOperateDeliveryFromAPI(t *testing.T) {
+	ctx := context.Background()
+	awsConf := awsConfig(t)
 	intervalSeconds := int(1)
 	sizeInMBs := int(5)
-	s3cli := s3Client(awsConf, s3EndpointURL)
+	s3cli := s3.NewFromConfig(awsConf, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String(s3EndpointURL)
+		o.UsePathStyle = true
+	})
 
 	d := NewDispatcher(&DispatcherConfig{
 		AWSConf: awsConf,
@@ -42,18 +49,19 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 
 	streamName := "foobar"
 	prefix := "aaa-prefix"
-	fh := firehose.New(session.Must(session.NewSession(
-		awsConf.Copy().WithEndpoint(testserver.URL))))
+	fh := firehose.NewFromConfig(awsConf, func(o *firehose.Options) {
+		o.BaseEndpoint = aws.String(testserver.URL)
+	})
 	for _, bucket := range []string{"", "foobarbaz"} {
 		t.Run(fmt.Sprintf("bucket: [%s]", bucket), func(t *testing.T) {
-			out, err := fh.CreateDeliveryStream(&firehose.CreateDeliveryStreamInput{
+			out, err := fh.CreateDeliveryStream(ctx, &firehose.CreateDeliveryStreamInput{
 				DeliveryStreamName: &streamName,
-				DeliveryStreamType: aws.String("DirectPut"),
-				S3DestinationConfiguration: &firehose.S3DestinationConfiguration{
+				DeliveryStreamType: fhtypes.DeliveryStreamTypeDirectPut,
+				S3DestinationConfiguration: &fhtypes.S3DestinationConfiguration{
 					BucketARN: aws.String("arn:aws:s3:::" + bucket),
-					BufferingHints: &firehose.BufferingHints{
-						SizeInMBs:         aws.Int64(32),
-						IntervalInSeconds: aws.Int64(60),
+					BufferingHints: &fhtypes.BufferingHints{
+						SizeInMBs:         aws.Int32(32),
+						IntervalInSeconds: aws.Int32(60),
 					},
 					Prefix:  &prefix,
 					RoleARN: aws.String("foo"),
@@ -62,21 +70,21 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 			if err == nil {
 				t.Error("error should exists")
 			}
-			if out.DeliveryStreamARN != nil {
+			if out != nil && out.DeliveryStreamARN != nil {
 				t.Errorf("unexpected CreateDeliveryStreamOutput received: %#v", out)
 			}
 		})
 	}
 
 	t.Run("create and describe delivery_stream", func(t *testing.T) {
-		bufferingHints := &firehose.BufferingHints{
-			SizeInMBs:         aws.Int64(32),
-			IntervalInSeconds: aws.Int64(60),
+		bufferingHints := &fhtypes.BufferingHints{
+			SizeInMBs:         aws.Int32(32),
+			IntervalInSeconds: aws.Int32(60),
 		}
-		cout, err := fh.CreateDeliveryStream(&firehose.CreateDeliveryStreamInput{
+		cout, err := fh.CreateDeliveryStream(ctx, &firehose.CreateDeliveryStreamInput{
 			DeliveryStreamName: &streamName,
-			DeliveryStreamType: aws.String("DirectPut"),
-			S3DestinationConfiguration: &firehose.S3DestinationConfiguration{
+			DeliveryStreamType: fhtypes.DeliveryStreamTypeDirectPut,
+			S3DestinationConfiguration: &fhtypes.S3DestinationConfiguration{
 				BucketARN:      aws.String("arn:aws:s3:::" + bucketName),
 				BufferingHints: bufferingHints,
 				Prefix:         &prefix,
@@ -90,7 +98,7 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 			t.Error("deliveryStreamARN not found")
 		}
 
-		dout, err := fh.DescribeDeliveryStream(&firehose.DescribeDeliveryStreamInput{
+		dout, err := fh.DescribeDeliveryStream(ctx, &firehose.DescribeDeliveryStreamInput{
 			DeliveryStreamName: &streamName,
 		})
 		if err != nil {
@@ -116,9 +124,9 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 	})
 
 	t.Run("put record", func(t *testing.T) {
-		out, err := fh.PutRecord(&firehose.PutRecordInput{
+		out, err := fh.PutRecord(ctx, &firehose.PutRecordInput{
 			DeliveryStreamName: &streamName,
-			Record: &firehose.Record{
+			Record: &fhtypes.Record{
 				Data: []byte(base64.StdEncoding.EncodeToString([]byte("1111111111\n"))),
 			},
 		})
@@ -131,9 +139,9 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 	})
 
 	t.Run("put_batch records", func(t *testing.T) {
-		out, err := fh.PutRecordBatch(&firehose.PutRecordBatchInput{
+		out, err := fh.PutRecordBatch(ctx, &firehose.PutRecordBatchInput{
 			DeliveryStreamName: &streamName,
-			Records: []*firehose.Record{
+			Records: []fhtypes.Record{
 				{Data: []byte(base64.StdEncoding.EncodeToString([]byte("2222222222\n")))},
 				{Data: []byte(base64.StdEncoding.EncodeToString([]byte("3333333333\n")))},
 			},
@@ -152,9 +160,9 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 	})
 
 	t.Run("receive objects", func(t *testing.T) {
-		var contents []*s3.Object
+		var contents []s3types.Object
 		for i := 0; i < 100; i++ {
-			out, err := s3cli.ListObjects(&s3.ListObjectsInput{
+			out, err := s3cli.ListObjects(ctx, &s3.ListObjectsInput{
 				Bucket: &bucketName,
 				Prefix: &prefix,
 			})
@@ -172,14 +180,14 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 		}
 		byteSize := 0
 		for _, content := range contents {
-			obj, err := s3cli.GetObject(&s3.GetObjectInput{
+			obj, err := s3cli.GetObject(ctx, &s3.GetObjectInput{
 				Bucket: &bucketName,
 				Key:    content.Key,
 			})
 			if err != nil {
 				t.Fatal(err)
 			}
-			body, err := ioutil.ReadAll(obj.Body)
+			body, err := io.ReadAll(obj.Body)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -191,7 +199,7 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 	})
 
 	t.Run("delete delivery_stream", func(t *testing.T) {
-		if _, err := fh.DeleteDeliveryStream(&firehose.DeleteDeliveryStreamInput{
+		if _, err := fh.DeleteDeliveryStream(ctx, &firehose.DeleteDeliveryStreamInput{
 			DeliveryStreamName: &streamName,
 		}); err != nil {
 			t.Fatal(err)
@@ -201,12 +209,12 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 	t.Run("list deliveryStreams", func(t *testing.T) {
 		streamNameBase := "stream-for-listing-%d"
 		input := &firehose.CreateDeliveryStreamInput{
-			DeliveryStreamType: aws.String("DirectPut"),
-			S3DestinationConfiguration: &firehose.S3DestinationConfiguration{
+			DeliveryStreamType: fhtypes.DeliveryStreamTypeDirectPut,
+			S3DestinationConfiguration: &fhtypes.S3DestinationConfiguration{
 				BucketARN: aws.String("arn:aws:s3:::" + bucketName),
-				BufferingHints: &firehose.BufferingHints{
-					SizeInMBs:         aws.Int64(1),
-					IntervalInSeconds: aws.Int64(60),
+				BufferingHints: &fhtypes.BufferingHints{
+					SizeInMBs:         aws.Int32(1),
+					IntervalInSeconds: aws.Int32(60),
 				},
 				Prefix:  &prefix,
 				RoleARN: aws.String("foo"),
@@ -214,7 +222,7 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 		}
 		for i := 1; i <= 15; i++ {
 			input.DeliveryStreamName = aws.String(fmt.Sprintf(streamNameBase, i))
-			out, err := fh.CreateDeliveryStream(input)
+			out, err := fh.CreateDeliveryStream(ctx, input)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -223,9 +231,9 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 			}
 			time.Sleep(100 * time.Millisecond)
 		}
-		out, err := fh.ListDeliveryStreams(&firehose.ListDeliveryStreamsInput{
-			DeliveryStreamType: aws.String("DirectPut"),
-			Limit:              aws.Int64(10),
+		out, err := fh.ListDeliveryStreams(ctx, &firehose.ListDeliveryStreamsInput{
+			DeliveryStreamType: fhtypes.DeliveryStreamTypeDirectPut,
+			Limit:              aws.Int32(10),
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -238,12 +246,12 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 		}
 		for i := 0; i < 10; i++ {
 			expected := fmt.Sprintf(streamNameBase, i+1)
-			if *out.DeliveryStreamNames[i] != expected {
-				t.Errorf("index:%d expected:%s, actual:%s", i, expected, *out.DeliveryStreamNames[i])
+			if out.DeliveryStreamNames[i] != expected {
+				t.Errorf("index:%d expected:%s, actual:%s", i, expected, out.DeliveryStreamNames[i])
 			}
 		}
-		out, err = fh.ListDeliveryStreams(&firehose.ListDeliveryStreamsInput{
-			DeliveryStreamType:               aws.String("DirectPut"),
+		out, err = fh.ListDeliveryStreams(ctx, &firehose.ListDeliveryStreamsInput{
+			DeliveryStreamType:               fhtypes.DeliveryStreamTypeDirectPut,
 			ExclusiveStartDeliveryStreamName: aws.String(fmt.Sprintf(streamNameBase, 10)),
 		})
 		if err != nil {
@@ -257,12 +265,12 @@ func TestOperateDeliveryFromAPI(t *testing.T) {
 		}
 		for i := 0; i < 5; i++ {
 			expected := fmt.Sprintf(streamNameBase, i+11)
-			if *out.DeliveryStreamNames[i] != expected {
-				t.Errorf("index:%d expected:%s, actual:%s", i, expected, *out.DeliveryStreamNames[i])
+			if out.DeliveryStreamNames[i] != expected {
+				t.Errorf("index:%d expected:%s, actual:%s", i, expected, out.DeliveryStreamNames[i])
 			}
 		}
-		out, err = fh.ListDeliveryStreams(&firehose.ListDeliveryStreamsInput{
-			DeliveryStreamType: aws.String("KinesisStreamAsSource"),
+		out, err = fh.ListDeliveryStreams(ctx, &firehose.ListDeliveryStreamsInput{
+			DeliveryStreamType: fhtypes.DeliveryStreamTypeKinesisStreamAsSource,
 		})
 		if err != nil {
 			t.Fatal(err)
