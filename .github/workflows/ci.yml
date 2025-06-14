@@ -1,0 +1,32 @@
+name: Go CI
+
+on:
+  push:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+        cache: false
+
+    - name: Start services with Docker Compose
+      run: docker compose up -d s3 kinesis
+
+    - name: Run tests
+      run: |
+        docker compose run --rm minio-mc
+        go test -race -v ./...
+      env:
+        AWS_REGION: ap-northeast-1
+        AWS_ACCESS_KEY_ID: XXXXXXXX
+        AWS_SECRET_ACCESS_KEY: YYYYYYYY
+        S3_ENDPOINT: http://localhost:9000
+        KINESIS_ENDPOINT: http://localhost:4567

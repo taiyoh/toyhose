@@ -8,9 +8,23 @@ services:
     volumes:
       - minio:/data
     environment:
-      - MINIO_ACCESS_KEY=XXXXXXXX
-      - MINIO_SECRET_KEY=YYYYYYYY
+      - MINIO_ACCESS_KEY=toyhose
+      - MINIO_SECRET_KEY=toyhose_pw
     command: server /data
+  minio-mc:
+    image: minio/mc:latest
+    depends_on:
+      - s3
+    entrypoint: >
+      /bin/sh -c "
+        /usr/bin/mc ls myminio;
+        # ----- alias の作成 -----;
+        until /usr/bin/mc alias set myminio http://s3:9000 toyhose toyhose_pw; do echo '...waiting...' && sleep 1; done;
+        # ----- access key の作成 (sdk で使用) -----;
+        /usr/bin/mc admin user svcacct add --access-key 'XXXXXXXX' --secret-key 'YYYYYYYY' myminio toyhose;
+
+        exit 0;
+      "
   kinesis:
     image: instructure/kinesalite
     environment:
