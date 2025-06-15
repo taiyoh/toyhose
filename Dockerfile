@@ -1,4 +1,4 @@
-FROM golang:1.13.8-buster AS toyhose-builder
+FROM golang:1.20.5-buster AS toyhose-builder
 
 ADD . /app
 WORKDIR /app
